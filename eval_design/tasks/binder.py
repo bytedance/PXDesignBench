@@ -1,0 +1,136 @@
+# Copyright 2025 ByteDance and/or its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+
+import pandas as pd
+
+from eval_design.tasks.base import BaseTask
+from eval_design.tasks.registry import register_task
+from eval_design.tools.protmpnn.main_mpnn import get_gt_sequence
+from eval_design.tools.protmpnn.mpnn_predictor import MPNNPredictor
+from eval_design.utils import save_eval_results
+
+
+@register_task("binder")
+class BinderTask(BaseTask):
+    def __init__(self, input_data, cfg, device_id, seed):
+        self.task_type = "binder"
+        self.task_name = input_data.get("name", "binder")
+        self.cond_chains = input_data["cond_chains"]
+        self.binder_chains = input_data["binder_chains"]
+        self.pdb_name_to_binder_seq_list = input_data.get(
+            "pdb_name_to_binder_seq_list", None
+        )
+
+        # Default values
+        self.use_binder_seq_list = cfg.get("use_binder_seq_list", False)
+        self.eval_diversity = cfg.get("eval_diversity", False)
+        self.eval_binder_monomer = cfg.get("eval_binder_monomer", True)
+        self.eval_complex = cfg.get("eval_complex", True)
+        self.eval_protenix = cfg.get("eval_protenix", True)
+        self.eval_protenix_large = cfg.get("eval_protenix_large", True)
+
+        # Check values
+        assert (
+            len(self.binder_chains) == 1
+        ), f"Get {len(self.binder_chains)} binder chains, but only 1 is allowed."
+
+        super().__init__(input_data, cfg, device_id, seed)
+
+    def prepare_data_from_seq_list(self):
+        datas = []
+        for name in self.pdb_names:
+            binder_seq_list = self.pdb_name_to_binder_seq_list[name]
+            for i, seq in enumerate(binder_seq_list):
+                data = {"name": name, "seq_idx": i, "sequence": seq}
+                datas.append(data)
+        return datas
+
+    def design_sequence(self, verbose=True):
+        if self.use_binder_seq_list:
+            results = self.prepare_data_from_seq_list()
+        elif self.use_gt_seq:
+            results = get_gt_sequence(
+                self.pdb_dir, self.pdb_names, self.binder_chains[0]
+            )
+        else:
+            mpnn_predictor = MPNNPredictor(
+                self.cfg.tools.mpnn,
+                device_id=self.device_id,
+                verbose=verbose,
+                seed=self.seed,
+            )
+            results = mpnn_predictor.design_binder(
+                self.pdb_dir,
+                self.pdb_names,
+                self.num_seqs,
+                binder_chains=self.binder_chains,
+                cond_chains=self.cond_chains,
+            )
+        return results
+
+    def run(self):
+        results = self.design_sequence()
+        self.check_results(results)
+        binder_chain = self.binder_chains[0]
+
+        af2_pred_path = os.path.join(self.out_dir, "af2_pred")
+        if self.eval_complex:
+            self.af2_complex_predict(results, af2_pred_path)
+
+        if self.eval_binder_monomer:
+            self.af2_monomer_predict(results, af2_pred_path)
+
+        if self.eval_protenix:
+            pred_pdb_paths = self.protenix_predict(results)
+
+        if self.eval_protenix_large:
+            self.protenix_predict(results, is_large=True)
+
+        self.cal_secondary(results, binder_chain)
+        div = self.cal_diversity()
+        sample_df = pd.DataFrame(results)
+        sample_df = sample_df.sort_values(by=["name", "seq_idx"])
+        self.compute_success_rate(self.cfg.filters, sample_df)
+        summary_dict = {"task": self.task_type, "name": self.task_name}
+        summary_dict.update(
+            self.summary_from_df(sample_df, other_metrics={"diversity": div})
+        )
+        sample_save_path, summary_save_path = save_eval_results(
+            sample_df, summary_dict, self.out_dir, self.sample_fn, self.summary_fn
+        )
+        print(
+            f"Eval done! Results are saved in {sample_save_path} and {summary_save_path}"
+        )
+        return {
+            "task": self.task_type,
+            "name": self.task_name,
+            "sample_save_path": sample_save_path,
+            "summary_save_path": summary_save_path,
+        }
+
+    def check_results(self, results):
+        result_names = [
+            result["name"] + f"_seq{result['seq_idx']}" for result in results
+        ]
+        if len(result_names) != len(set(result_names)):
+            raise ValueError(f"Found duplicate names in results: {result_names}.")
+        if self.use_binder_seq_list or self.use_gt_seq:
+            pass
+        elif len(result_names) != len(self.pdb_names) * self.num_seqs:
+            raise ValueError(
+                f"Found {len(result_names)} results, but {len(self.pdb_names)} pdb_names, each with {self.num_seqs} seqs are provided."
+            )
+        return
