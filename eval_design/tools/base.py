@@ -22,6 +22,13 @@ from abc import ABC, abstractmethod
 
 
 class BasePredictor(ABC):
+    """
+    Abstract base class for predictors that execute external scripts via subprocess.
+
+    Provides common functionality for initializing device configuration, setting up environment variables,
+    and running predictions through external Python scripts with temporary input/output files.
+    """
+
     def __init__(self, cfg, device_id: int = 0, seed: int = None, verbose=True):
         self.cfg = cfg
         self.device_id = device_id
@@ -36,6 +43,25 @@ class BasePredictor(ABC):
         self.env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
     def run(self, input_data):
+        """
+        Execute the prediction workflow by running an external Python script via subprocess.
+
+        Steps:
+        1. Write input_data to a temporary JSON file.
+        2. Create a temporary file for script output.
+        3. Construct command with script path, input/output paths, and seed (if specified).
+        4. Run subprocess, stream stdout/stderr, and wait for completion.
+        5. Read and return output from temporary file after cleanup.
+
+        Args:
+            input_data: Input data to pass to the external script (serialized as JSON).
+
+        Returns:
+            dict: Parsed output from the external script (deserialized from JSON).
+
+        Raises:
+            Exception: If subprocess execution fails.
+        """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(input_data, f)
             input_path = f.name

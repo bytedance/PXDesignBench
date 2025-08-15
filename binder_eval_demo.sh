@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export LAYERNORM_TYPE=fast_layernorm
-export USE_DEEPSPEED_EVO_ATTENTION=true
+dtype=fp32
+use_deepspeed_evo_attention=false
 
-use_deepspeed_evo_attention=true
-dtype=bf16
+export LAYERNORM_TYPE=fast_layernorm
+export USE_DEEPSPEED_EVO_ATTENTION=${use_deepspeed_evo_attention}
 
 input_dir="./examples/binder"
 dump_dir="./output/binder"
@@ -30,6 +30,8 @@ python3 eval_design/run.py \
 --data_dir ${input_dir} \
 --dump_dir ${dump_dir} \
 --is_mmcif ${is_mmcif} \
+--seed 2025 \
+--orig_seqs_json ./examples/orig_seqs_test.json \
 --binder.num_seqs ${N_seqs} \
 --binder.tools.mpnn.temperature ${mpnn_temp} \
 --binder.tools.af2.use_binder_template true \

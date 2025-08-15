@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import time
 
 import numpy as np
 import pandas as pd
@@ -29,7 +28,16 @@ from eval_design.utils import save_eval_results
 
 @register_task("monomer")
 class MonomerTask(BaseTask):
-    def __init__(self, input_data, cfg, device_id, seed):
+    def __init__(self, input_data, cfg, device_id: int, seed: int):
+        """
+        Initialize a MonomerTask instance.
+
+        Args:
+            input_data (dict): Task input parameters with PDB directory and names.
+            cfg (dict): Configuration dictionary with task settings.
+            device_id (int): GPU device ID (-1 for CPU).
+            seed (int): Random seed for reproducibility.
+        """
         self.task_type = "monomer"
         self.task_name = input_data.get("name", "monomer")
         self.eval_diversity = cfg.get("eval_diversity", False)
@@ -49,6 +57,17 @@ class MonomerTask(BaseTask):
         return inputs
 
     def design_sequence(self, verbose=True):
+        """
+        Design monomer sequences using Vanilla MPNN.
+
+        Initializes a VanillaMPNNPredictor and uses it to generate sequences for monomer proteins.
+
+        Args:
+            verbose (bool, optional): Whether to print detailed progress. Defaults to True.
+
+        Returns:
+            list[dict]: List of design results with "name", "seq_idx", and "sequence" keys.
+        """
         mpnn_predictor = VanillaMPNNPredictor(
             self.cfg.tools.mpnn,
             device_id=self.device_id,
@@ -61,13 +80,25 @@ class MonomerTask(BaseTask):
         return results
 
     def run(self):
+        """
+        Execute the complete monomer design evaluation workflow.
+
+        Workflow steps:
+        1. Design sequences via design_sequence()
+        2. Predict structures using ESMFold and evaluate self consistency
+        3. Calculate secondary structure metrics
+        4. Compute diversity and success rates based on scRMSD thresholds
+        5. Save sample-level results to CSV and summary metrics to JSON
+
+        Returns:
+            dict: Task metadata and output file paths.
+        """
         results = self.design_sequence()
         esmfold_model = esmfold.ESMFold(self.get_device())
         print("Load esmfold done!")
         folding_dir = os.path.join(self.out_dir, "esmfold")
         os.makedirs(folding_dir, exist_ok=True)
 
-        t1 = time.time()
         for item in tqdm(results, desc="ESMFold eval"):
             pdb_str, plddt = esmfold_model.predict([item["sequence"]])
             assert len(pdb_str) == 1 and len(plddt) == 1
@@ -77,15 +108,11 @@ class MonomerTask(BaseTask):
 
         inputs = self.prepare_consistency_inputs(results, folding_dir)
         outputs = consistency.self_consistency(inputs)
-        t2 = time.time()
-        print("self consistency done! ", outputs, "time: ", t2 - t1)
         for item in results:
             consistency_key = f"{item['name']}_seq{item['seq_idx']}"
             item.update(outputs[consistency_key])
 
         self.cal_secondary(results, chain_id="A")
-        t3 = time.time()
-        print("secondary done! time: ", t3 - t2)
 
         overall = {}
         for threshold in [2, 5]:
@@ -100,8 +127,6 @@ class MonomerTask(BaseTask):
             )
             overall[f"div_scRMSD_lt{threshold}"] = div
 
-        t4 = time.time()
-        print("diversity done! time: ", t4 - t3)
         # scTM and scRMSD: max/min(all seq in a same design) -> avg over all designs
         overall_consistency = {}
         for item in results:

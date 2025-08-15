@@ -32,7 +32,12 @@ from protenix.utils.torch_utils import to_device
 from runner.dumper import DataDumper
 
 from eval_design.metrics.Kalign import align_and_calculate_rmsd
-from eval_design.tools.ptx.ptx_utils import download_infercence_cache, get_configs
+from eval_design.tools.ptx.ptx_utils import (
+    download_infercence_cache,
+    get_configs,
+    patch_with_orig_seqs,
+    populate_msa_with_cache,
+)
 from eval_design.utils import concat_dict_values, convert_cif_to_pdb
 
 logger = logging.getLogger(__name__)
@@ -46,6 +51,8 @@ class ProtenixFilter:
         self.ptx_cfg.use_deepspeed_evo_attention = self.cfg.get(
             "use_deepspeed_evo_attention", True
         )
+        self.ptx_cfg.data.msa.min_size.test = 2000
+        self.ptx_cfg.data.msa.sample_cutoff.test = 2000
         self.ptx_ckpt_path = f"{self.ptx_cfg.load_checkpoint_dir}/{self.model_name}.pt"
         self.dtype = cfg.dtype
         self.device = device
@@ -107,6 +114,7 @@ class ProtenixFilter:
         data_list: list[dict],
         dump_dir: str,
         binder_chain_idx=None,
+        orig_seqs: list = None,
     ):
         input_dicts = []
         for item in data_list:
@@ -118,7 +126,9 @@ class ProtenixFilter:
             with tempfile.NamedTemporaryFile(suffix=".cif") as tmp:
                 tmp_cif_file = tmp.name
                 pdb_to_cif(pdb_path, tmp_cif_file)
-                d = cif_to_input_json(tmp_cif_file, sample_name=name)
+                d = cif_to_input_json(
+                    tmp_cif_file, sample_name=name, save_entity_and_asym_id=True
+                )
 
             if binder_chain_idx is None:
                 b_id = len(d["sequences"]) - 1
@@ -130,6 +140,12 @@ class ProtenixFilter:
             new_d["sequences"][b_id]["proteinChain"]["use_msa"] = False
             new_d["name"] = d["name"] + f"_seq{seq_idx}"
             input_dicts.append(new_d)
+
+        if orig_seqs is not None:
+            input_dicts = patch_with_orig_seqs(input_dicts, orig_seqs)
+
+        # precompute MSA if necessary
+        input_dicts = populate_msa_with_cache(input_dicts)
 
         os.makedirs(dump_dir, exist_ok=True)
         json_path = os.path.join(dump_dir, "protenix_inputs.json")
@@ -170,7 +186,7 @@ class ProtenixFilter:
         inference_dataset = InferenceDataset(
             input_json_path=input_json_path,
             dump_dir=None,
-            use_msa=False,
+            use_msa=True,
             configs=self.ptx_cfg,
         )
         os.makedirs(dump_dir, exist_ok=True)
@@ -178,7 +194,7 @@ class ProtenixFilter:
 
         all_predictions = {}
         seed = seed if isinstance(seed, int) else 2025
-        seed_everything(seed=seed, deterministic=False)
+        seed_everything(seed=seed, deterministic=True)
         self.model.configs.sample_diffusion["N_sample"] = N_sample
         self.model.configs.sample_diffusion["N_step"] = N_step
         self.model.configs.sample_diffusion["step_scale_eta"] = step_scale_eta

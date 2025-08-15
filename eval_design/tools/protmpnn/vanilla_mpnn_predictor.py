@@ -34,7 +34,18 @@ class VanillaMPNNPredictor:
         self.env = os.environ.copy()
         self.env["CUDA_VISIBLE_DEVICES"] = str(device_id)
 
-    def prepare_jsonl(self, input_dir: str, pdb_names: list):
+    def prepare_jsonl(self, input_dir: str, pdb_names: list[str]):
+        """
+        Prepare a JSONL file for ProteinMPNN input by parsing multiple chains from PDB files.
+
+        Args:
+            input_dir (str): Directory containing input PDB files.
+            pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+
+        Returns:
+            str: Path to the output JSONL file.
+        """
+
         with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
             output_path = f.name
 
@@ -89,7 +100,19 @@ class VanillaMPNNPredictor:
                 f.write(json.dumps(entry) + "\n")
         return output_path
 
-    def run_mpnn(self, jsonl_path, pdb_names, num_seqs):
+    def run_mpnn(self, jsonl_path: str, pdb_names: list[str], num_seqs: int):
+        """
+        Run ProteinMPNN to design sequences for the given PDB names.
+
+        Args:
+            jsonl_path (str): Path to the input JSONL file containing parsed PDB data.
+            pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+            num_seqs (int): Number of sequences to generate per PDB.
+
+        Returns:
+            None
+        """
+
         model_type = self.cfg["model_type"]
         model_name = self.cfg["model_name"]
         assert model_type in ["ca", "bb", "soluable"]
@@ -175,6 +198,18 @@ class VanillaMPNNPredictor:
     def design_monomer(
         self, pdb_dir: str, pdb_names: List[str], num_samples: int
     ) -> List[Dict]:
+        """
+        Design sequences for monomer proteins using ProteinMPNN.
+
+        Args:
+            pdb_dir (str): Directory containing input PDB files.
+            pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+            num_samples (int): Number of sequences to generate per PDB.
+
+        Returns:
+            list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
+                        and 'sequence' (designed amino acid sequence).
+        """
 
         # input_data = {
         #     "pdb_dir": pdb_dir,
@@ -196,6 +231,20 @@ class VanillaMPNNPredictor:
         binder_chains: List[str],
         cond_chains: List[str],
     ) -> List[Dict]:
+        """
+        Design sequences for binder proteins using ProteinMPNN.
+
+        Args:
+            pdb_dir (str): Directory containing input PDB files.
+            pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+            num_samples (int): Number of sequences to generate per PDB.
+            binder_chains (list[str]): List of binder chain IDs.
+            cond_chains (list[str]): List of conditional chain IDs.
+
+        Returns:
+            list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
+                        and 'sequence' (designed amino acid sequence).
+        """
         input_data = {
             "pdb_dir": pdb_dir,
             "pdb_names": pdb_names,

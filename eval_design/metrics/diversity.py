@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import multiprocessing as mp
-import sys
 from itertools import combinations
 
 from eval_design.metrics import tmalign
@@ -26,6 +25,17 @@ def compute_pair_tm_score(args):
 
 
 def compute_diversity(pdb_files, chain_id=None):
+    """
+    Calculate the average TM-score between all pairs of PDB files to measure diversity.
+
+    Args:
+        pdb_files (list): A list of file paths to PDB files.
+        chain_id (str, optional): The chain ID to use for TM-score calculation. Defaults to None.
+
+    Returns:
+        float or None: The average TM-score between all valid pairs of PDB files.
+                       Returns None if no valid pairs are found.
+    """
     num_workers = min(32, mp.cpu_count())
     pairs = list(combinations(pdb_files, 2))
 
@@ -45,5 +55,3 @@ def compute_diversity(pdb_files, chain_id=None):
         average = None
         print("No valid TM-score pairs found.")
     return average
-
-

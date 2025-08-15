@@ -29,8 +29,25 @@ logger = logging.getLogger(__name__)
 
 
 def predict_binder_structure(
-    prediction_model, sequence, design_name, model_indices: list[int], save_dir
+    prediction_model,
+    sequence: str,
+    design_name: str,
+    model_indices: list[int],
+    save_dir: str,
 ):
+    """
+    Predict binder structure using AlphaFold2 and compute structural metrics.
+
+    Args:
+        prediction_model: Initialized ColabDesign AFDesign model instance.
+        sequence (str): Amino acid sequence of the binder to predict.
+        design_name (str): Unique identifier for the design (e.g., "pdbname_seq0").
+        model_indices (list[int]): List of AlphaFold2 model indices to use (0-4).
+        save_dir (str): Directory to save predicted PDB files and metrics.
+
+    Returns:
+        dict: Prediction statistics (pLDDT, pTM, i_pTM, etc.) for each model index.
+    """
     sequence = re.sub(r"[^A-Z]", "", sequence.upper())
     prediction_stats = {}
 
@@ -81,6 +98,22 @@ def complex_prediction(
     verbose=True,
     is_cyclic=False,
 ):
+    """
+    Run batch prediction for binder complexes using AlphaFold2.
+
+    Args:
+        input_dir (str): Directory containing input PDB files for target structures.
+        save_dir (str): Directory to save prediction outputs (PDBs, metrics).
+        data_list (list[dict]): List of design data with keys "name", "sequence", "seq_idx".
+        cond_chain (str): Chain ID(s) of the target (conditioning) structure(s).
+        binder_chain (str): Chain ID of the binder to design/predict.
+        af2_cfg (dict): AlphaFold2 configuration (model indices, multimer usage, etc.).
+        verbose (bool, optional): Whether to print progress. Defaults to True.
+        is_cyclic (bool, optional): Whether the binder is cyclic (adds cyclic offset). Defaults to False.
+
+    Returns:
+        list[dict]: Aggregated prediction statistics for each design in data_list.
+    """
     use_binder_template = af2_cfg["use_binder_template"]
     logger.info(f"Input use_binder_template: {use_binder_template}")
 

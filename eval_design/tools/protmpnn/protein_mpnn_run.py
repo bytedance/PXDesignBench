@@ -5,6 +5,8 @@
 import argparse
 import os.path
 
+from protenix.utils.seed import seed_everything
+
 
 def main(args):
 
@@ -50,9 +52,7 @@ def main(args):
     else:
         seed = int(np.random.randint(0, high=999, size=1, dtype=int)[0])
 
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
+    seed_everything(seed, deterministic=True)
 
     hidden_dim = 128
     num_layers = 3

@@ -18,6 +18,16 @@ from eval_design.metrics import Kalign, tmalign
 
 
 def self_consistency(inputs: dict):
+    """
+    Calculate self-consistency metrics (scTM and scRMSD) for a set of input files.
+
+    Args:
+        inputs (dict): A dictionary where keys are names and values are dictionaries
+                       containing "source_file" and "target_file" keys.
+
+    Returns:
+        dict: A dictionary containing the calculated scTM and scRMSD metrics for each input.
+    """
     outputs = {}
     for name, item in inputs.items():
         source_file = item["source_file"]

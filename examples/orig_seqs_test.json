@@ -1,0 +1,16 @@
+[
+    {
+        "proteinChain": {
+            "sequence": "NAFTVTVPKDLYVVEYGSNMTIECKFPVEKQLDLAALIVYWEMEDKNIIQFVHGEEDLKVQHSSYRQRARLLKDQLSLGNAALQITDVKLQDAGVYRCMISYGGADYKRITVKVNA",
+            "label_asym_id": [
+                "A0"
+            ],
+            "use_msa": true,
+            "msa": {
+                "precomputed_msa_dir": "examples/msa/PDL1/0",
+                "pairing_db": "uniref100"
+            },
+            "crop": "1-116"
+        }
+    }
+]

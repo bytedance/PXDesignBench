@@ -29,7 +29,15 @@ from Bio import PDB
 from eval_design.globals import TMALIGN_PATH
 
 
-def extract_chain(input_pdb, chain_id, output_pdb):
+def extract_chain(input_pdb: str, chain_id: str, output_pdb: str):
+    """
+    Extract a specific chain from a PDB file.
+
+    Args:
+        input_pdb (str): Path to the input PDB file.
+        chain_id (str): The chain ID to extract.
+        output_pdb (str): Path to the output PDB file.
+    """
     parser = PDB.PDBParser(QUIET=True)
     io = PDB.PDBIO()
     structure = parser.get_structure("structure", input_pdb)
@@ -42,7 +50,18 @@ def extract_chain(input_pdb, chain_id, output_pdb):
     io.save(output_pdb, select=ChainSelect())
 
 
-def run_tmalign(file1, file2):
+def run_tmalign(file1: str, file2: str):
+    """
+    Run TM-align between two PDB files.
+
+    Args:
+        file1 (str): Path to the first PDB file.
+        file2 (str): Path to the second PDB file.
+
+    Returns:
+        float or None: The TM-score between the two structures.
+        Returns None if the TM-align command fails.
+    """
     try:
         result = subprocess.run(
             [TMALIGN_PATH, file1, file2],
@@ -60,13 +79,34 @@ def run_tmalign(file1, file2):
     return None
 
 
-def get_pdb_basename(pdb_path):
+def get_pdb_basename(pdb_path: str):
     assert pdb_path.endswith(".pdb")
     basename = os.path.basename(pdb_path)
     return basename[:-4]
 
 
-def get_tm_score(pdb1, pdb2, chain1=None, chain2=None, keep_temp=False, temp_dir="tmp"):
+def get_tm_score(
+    pdb1: str, pdb2: str, chain1=None, chain2=None, keep_temp=False, temp_dir="tmp"
+):
+    """
+    Calculate the TM-score between two PDB structures, optionally using specific chains.
+
+    If specific chains are provided, extracts those chains into temporary files, runs TM-align,
+    and optionally cleans up temporary files. If no chains are specified, runs TM-align directly
+    on the input PDB files.
+
+    Args:
+        pdb1 (str): Path to the first PDB file.
+        pdb2 (str): Path to the second PDB file.
+        chain1 (str, optional): Chain ID to extract from the first PDB file. Defaults to None.
+        chain2 (str, optional): Chain ID to extract from the second PDB file. Defaults to None.
+        keep_temp (bool, optional): Whether to keep temporary chain files. Defaults to False.
+        temp_dir (str, optional): Directory to store temporary chain files. Defaults to "tmp".
+
+    Returns:
+        float or None: The TM-score between the specified structures/chains.
+        Returns None if TM-align execution fails or no valid TM-score is found.
+    """
     if chain1 is None or chain2 is None:
         tm_score = run_tmalign(pdb1, pdb2)
     else:

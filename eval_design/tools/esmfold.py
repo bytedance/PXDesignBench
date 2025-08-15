@@ -24,6 +24,13 @@ from eval_design.globals import ESMFOLD_MODEL_PATH
 
 
 class ESMFold:
+    """
+    Wrapper class for protein structure prediction using the ESMFold model.
+
+    Handles model initialization, sequence tokenization, structure prediction,
+    and conversion of model outputs to PDB format with pLDDT scores.
+    """
+
     def __init__(self, device="cuda:0"):
         self.tokenizer = AutoTokenizer.from_pretrained(ESMFOLD_MODEL_PATH)
         self.model = EsmForProteinFolding.from_pretrained(
