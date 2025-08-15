@@ -23,13 +23,33 @@ from eval_design.tools.biopython_utils import get_interface_residue_id, hotspot_
 from eval_design.utils import extract_chain_sequence, seed_everything
 
 
-def get_pdb_basename(pdb_path):
+def get_pdb_basename(pdb_path: str):
     assert pdb_path.endswith(".pdb")
     basename = os.path.basename(pdb_path)
     return basename[:-4]
 
 
-def design_monomer(pdb_dir, pdb_names, num_samples, mpnn_cfg, if_print=True):
+def design_monomer(
+    pdb_dir: str,
+    pdb_names: list[str],
+    num_samples: int,
+    mpnn_cfg: ConfigDict,
+    if_print=True,
+):
+    """
+    Design sequences for monomer proteins using ProteinMPNN.
+
+    Args:
+        pdb_dir (str): Directory containing input PDB files.
+        pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+        num_samples (int): Number of sequences to generate per PDB.
+        mpnn_cfg (ConfigDict): ProteinMPNN configuration (temperature, weights, etc.).
+        if_print (bool, optional): Whether to print progress. Defaults to True.
+
+    Returns:
+        list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
+                    and 'sequence' (designed amino acid sequence).
+    """
     clear_mem()
     mpnn_model = mk_mpnn_model(
         backbone_noise=0.0,
@@ -81,16 +101,29 @@ def design_monomer(pdb_dir, pdb_names, num_samples, mpnn_cfg, if_print=True):
 
 
 def design_binder(
-    pdb_dir,
-    pdb_names,
-    num_samples,
-    binder_chains,
-    cond_chains,
-    mpnn_cfg,
+    pdb_dir: str,
+    pdb_names: list[str],
+    num_samples: int,
+    binder_chains: list[str],
+    cond_chains: list[str],
+    mpnn_cfg: ConfigDict,
     if_print=True,
 ):
     """
-    Design Sequence unsing ProteinMPNN
+    Design sequences for binder proteins using ProteinMPNN.
+
+    Args:
+        pdb_dir (str): Directory containing input PDB files.
+        pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+        num_samples (int): Number of sequences to generate per PDB.
+        binder_chains (list[str]): List of binder chain IDs.
+        cond_chains (list[str]): List of conditional chain IDs.
+        mpnn_cfg (ConfigDict): ProteinMPNN configuration (temperature, weights, etc.).
+        if_print (bool, optional): Whether to print progress. Defaults to True.
+
+    Returns:
+        list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
+                    and 'sequence' (designed amino acid sequence).
     """
 
     clear_mem()
@@ -162,8 +195,20 @@ def design_binder(
     return final_result
 
 
-def get_gt_sequence(pdb_dir, pdb_names, binder_chain="B"):
+def get_gt_sequence(pdb_dir: str, pdb_names: list[str], binder_chain="B"):
+    """
+    Get ground truth sequences for binder proteins from PDB files.
 
+    Args:
+        pdb_dir (str): Directory containing input PDB files.
+        pdb_names (list[str]): List of PDB base names (without '.pdb') to process.
+        binder_chain (str, optional): Chain ID of the binder protein. Defaults to "B".
+
+    Returns:
+        list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
+                    and 'sequence' (ground truth amino acid sequence).
+    """
+    
     final_result = []
     for name in pdb_names:
         sequence = []

@@ -35,6 +35,8 @@ class BaseTask(ABC):
         self.cfg = cfg
         self.device_id = device_id
         self.seed = seed
+        assert "pdb_dir" in input_data
+        assert "pdb_names" in input_data
         self.pdb_dir = input_data["pdb_dir"]
         self.pdb_names = input_data["pdb_names"]
         self.out_dir = input_data.get("out_dir", os.path.dirname(self.pdb_dir))
@@ -69,6 +71,17 @@ class BaseTask(ABC):
         exclude_keys=["name", "seq_idx", "sequence"],
         other_metrics={},
     ):
+        """
+        Compute summary metrics from a DataFrame.
+
+        Args:
+            sample_df (pd.DataFrame): Input DataFrame containing sample data.
+            exclude_keys (list, optional): Columns to exclude from summary. Defaults to ["name", "seq_idx", "sequence"].
+            other_metrics (dict, optional): Additional metrics to include. Defaults to {}.
+
+        Returns:
+            dict: A dictionary containing computed summary metrics.
+        """
         metrics = {}
         for col in sample_df.columns:
             if col in exclude_keys:
@@ -100,6 +113,16 @@ class BaseTask(ABC):
 
     @staticmethod
     def compute_success_rate(filters_cfg, metrics: pd.DataFrame) -> pd.DataFrame:
+        """
+        Compute success rate for each filter based on metrics.
+
+        Args:
+            filters_cfg (dict): Configuration for filters.
+            metrics (pd.DataFrame): DataFrame containing metrics.
+
+        Returns:
+            pd.DataFrame: Updated DataFrame with success rate metrics.
+        """
         for filter_name, filter_details in filters_cfg.items():
             missing = [k for k in filter_details.keys() if k not in metrics.columns]
 
@@ -127,10 +150,6 @@ class BaseTask(ABC):
                 metrics[f"{filter_name}_success_ignore_missing"] = metrics.apply(
                     row_success, axis=1
                 )
-                # DEBUG ONLY:
-                # metrics[f"{filter_name}_success_ignore_missing"] = (
-                #     np.random.rand(len(metrics)) < 0.1
-                # )
             else:
                 metrics[f"{filter_name}_success"] = metrics.apply(row_success, axis=1)
                 metrics[f"{filter_name}_success_ignore_missing"] = metrics[
@@ -139,8 +158,15 @@ class BaseTask(ABC):
         return metrics
 
     def process_pdb_paths(self):
-        "Temperary check for input pdb_paths"
+        """
+        Validate and filter PDB file paths based on their existence.
 
+        This method checks if each PDB file specified in self.pdb_names exists in the
+        directory specified by self.pdb_dir. It filters out any PDB names that don't
+        correspond to existing files and updates self.pdb_names to only contain valid names.
+
+        Logs a warning message for each PDB file that is not found and skipped.
+        """
         # Check if pdb_paths are valid
         valid_pdb_names = []
         for name in self.pdb_names:
@@ -156,7 +182,16 @@ class BaseTask(ABC):
         return
 
     def cal_diversity(self, pdb_names=None, binder_chain=None):
-        # CPU eval, very slow
+        """
+        Calculate diversity of PDB structures. May be slow.
+
+        Args:
+            pdb_names (list, optional): List of PDB names to consider. Defaults to None.
+            binder_chain (str, optional): Chain ID of the binder. Defaults to None.
+
+        Returns:
+            float: Diversity value.
+        """
         if self.eval_diversity:
             all_names = self.pdb_names if pdb_names is None else pdb_names
             pdb_paths = [
@@ -168,6 +203,13 @@ class BaseTask(ABC):
         return div
 
     def cal_secondary(self, results, chain_id=None):
+        """
+        Calculate secondary structure metrics for PDB structures.
+
+        Args:
+            results (list): List of dictionaries containing PDB structure information.
+            chain_id (str, optional): Chain ID of the binder. Defaults to None.
+        """
         for item in results:
             pdb_path = os.path.join(self.pdb_dir, item["name"] + ".pdb")
             alpha, beta, loop = secondary.cacl_secondary_structure(pdb_path, chain_id)
@@ -181,9 +223,16 @@ class BaseTask(ABC):
                     "ref_ratio": ref_ratio,
                 }
             )
-            # print(item)
 
     def af2_complex_predict(self, data_list, save_dir, verbose=True):
+        """
+        Run AF2 complex prediction.
+
+        Args:
+            data_list (list): List of data samples.
+            save_dir (str): Directory to save predictions.
+            verbose (bool, optional): Whether to print verbose output. Defaults to True.
+        """
         assert self.task_type in ["binder"]
         predictor = AF2ComplexPredictor(
             self.cfg.tools.af2,
@@ -200,6 +249,14 @@ class BaseTask(ABC):
         )
 
     def af2_monomer_predict(self, data_list, save_dir, verbose=True):
+        """
+        Run AF2 monomer prediction.
+
+        Args:
+            data_list (list): List of data samples.
+            save_dir (str): Directory to save predictions.
+            verbose (bool, optional): Whether to print verbose output. Defaults to True.
+        """
         assert self.task_type in ["binder", "ligand_binder"]
         predictor = AF2MonomerPredictor(
             self.cfg.tools.af2,
@@ -214,7 +271,14 @@ class BaseTask(ABC):
             binder_chain=self.binder_chains[0],
         )
 
-    def protenix_predict(self, data_list, is_large=False):
+    def protenix_predict(self, data_list, orig_seqs=None, is_large=False):
+        """
+        Run Protenix prediction.
+
+        Args:
+            data_list (list): List of data samples.
+            is_large (bool, optional): Whether to use the large model. Defaults to False.
+        """
         if is_large:
             ptx_cfg = self.cfg.tools.ptx_large
             dump_dir = os.path.join(self.out_dir, "ptx_pred_large")
@@ -229,6 +293,7 @@ class BaseTask(ABC):
             data_list,
             dump_dir=dump_dir,
             binder_chain_idx=binder_chain_idx,
+            orig_seqs=orig_seqs
         )
         pred_pdb_paths = ptx_filter.predict(
             input_json_path=json_path,

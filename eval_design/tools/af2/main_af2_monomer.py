@@ -31,11 +31,24 @@ logger = logging.getLogger(__name__)
 
 def predict_binder_monomer(
     prediction_model,
-    sequence,
-    design_name,
-    model_indices,
-    save_dir,
+    sequence: str,
+    design_name: str,
+    model_indices: list[int],
+    save_dir: str,
 ):
+    """
+    Predict monomeric binder structure using AlphaFold2 and compute monomer-specific metrics.
+
+    Args:
+        prediction_model: Initialized ColabDesign AFDesign model instance (hallucination protocol).
+        sequence (str): Amino acid sequence of the binder monomer.
+        design_name (str): Unique identifier for the design (e.g., "pdbname_seq0_MONOMER_ONLY").
+        model_indices (list[int]): List of AlphaFold2 model indices to use (0-4).
+        save_dir (str): Directory to save predicted PDB files and metrics.
+
+    Returns:
+        dict: Prediction statistics (pLDDT, pTM, pAE) for each model index.
+    """
     sequence = re.sub(r"[^A-Z]", "", sequence.upper())
     prediction_model.set_seq(sequence)
     prediction_stats = {}
@@ -79,7 +92,30 @@ def binder_only_prediction(
     verbose=True,
     is_cyclic=False,
 ):
+    """
+    Run batch prediction for monomeric binders and compute comparative structural metrics.
 
+    Workflow:
+    1. Initializes AlphaFold2 model for monomer hallucination.
+    2. Processes each design in data_list, optimizing model compilation by reusing length-specific inputs.
+    3. Predicts monomer structures and computes pLDDT, pTM, pAE.
+    4. Calculates RMSD between:
+       - Predicted monomer and predicted complex (if complex PDB exists).
+       - Predicted monomer and original design template (if template PDB exists).
+    5. Aggregates metrics across AlphaFold2 models.
+
+    Args:
+        save_dir (str): Directory to save monomer prediction outputs (PDBs, metrics).
+        design_pdb_dir (str): Directory containing original design template PDBs.
+        data_list (list[dict]): List of design data with keys "name", "sequence", "seq_idx".
+        af2_cfg (dict): AlphaFold2 configuration (model indices, multimer usage, etc.).
+        binder_chain (str, optional): Chain ID of the binder in original design templates. Defaults to "B".
+        verbose (bool, optional): Whether to print progress. Defaults to True.
+        is_cyclic (bool, optional): Whether the binder is cyclic (adds cyclic offset). Defaults to False.
+
+    Returns:
+        list[dict]: Aggregated monomer prediction metrics for each design in data_list.
+    """
     clear_mem()
     prediction_model = mk_afdesign_model(
         protocol="hallucination",

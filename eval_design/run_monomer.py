@@ -115,7 +115,12 @@ class EvalRunner(object):
                 "pdb_names": pdb_names,
                 "out_dir": dump_dir,
             }
-            run_task(input_data, self.configs, device_id=DIST_WRAPPER.local_rank)
+            run_task(
+                input_data,
+                self.configs,
+                device_id=DIST_WRAPPER.local_rank,
+                seed=self.configs.seed,
+            )
         logging.info("Eval done!")
 
 
@@ -124,6 +129,7 @@ def main():
         "data_dir": RequiredValue(str),
         "dump_dir": RequiredValue(str),
         "is_mmcif": False,
+        "seed": 2025,
         **eval_configs,
     }
     configs = parse_configs(config_dict, arg_str=parse_sys_args())

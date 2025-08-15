@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+dtype=fp32
+use_deepspeed_evo_attention=false
+
 export LAYERNORM_TYPE=fast_layernorm
-export USE_DEEPSPEED_EVO_ATTENTION=true
+export USE_DEEPSPEED_EVO_ATTENTION=${use_deepspeed_evo_attention}
 
 input_dir="./examples/monomer"
 dump_dir="./output/monomer"
@@ -27,6 +30,7 @@ python3 ./eval_design/run_monomer.py \
 --data_dir ${input_dir} \
 --dump_dir ${dump_dir} \
 --is_mmcif ${is_mmcif} \
+--seed 2025 \
 --monomer.num_seqs ${N_seqs} \
 --monomer.tools.mpnn.temperature ${mpnn_temp} \
 --monomer.tools.mpnn.model_type ${mpnn_model} \

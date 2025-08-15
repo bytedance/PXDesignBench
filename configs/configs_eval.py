@@ -17,8 +17,6 @@
 from protenix.config.extend_types import ListValue
 
 eval_configs = {
-    # "input_dir": "",
-    # "save_dir": DefaultNoneWithType(str),
     "monomer": {
         "eval_diversity": False,
         "num_seqs": 8,

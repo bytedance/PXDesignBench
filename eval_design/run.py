@@ -16,6 +16,7 @@ import json
 import os
 from typing import Union
 
+import torch
 from protenix.config import parse_configs, parse_sys_args
 from protenix.config.extend_types import ListValue, RequiredValue
 from protenix.utils.logger import get_logger
@@ -27,7 +28,7 @@ from eval_design.utils import convert_cif_to_pdb
 logger = get_logger(__name__)
 
 
-def run_task(input_data: dict, configs, device_id=0, seed=None):
+def run_task(input_data: dict, configs, device_id: int = 0, seed: int = None):
     """
 
     Args:
@@ -44,6 +45,8 @@ def run_task(input_data: dict, configs, device_id=0, seed=None):
     Returns:
         dict: A dictionary containing the results of the task.
     """
+    if device_id >= 0 and not torch.cuda.is_available():
+        raise ValueError("device_id must be -1 (CPU) or a valid GPU ID")
     task = input_data["task"]
     task_cls = get_task_class(task)
     task_cfg = configs.get(task)
@@ -145,13 +148,6 @@ def prepare_tasks_from_mmcif(
         else:
             assert set(n_binder_chains) == set(new_binder_chains)
 
-    # if cond_chains is not None and cond_chains != [""]:
-    #     if not set(cond_chains).issubset(set(n_cond_chains)):
-    #         raise ValueError(
-    #             f"cond_chains {cond_chains} is not a subset of n_cond_chains {n_cond_chains}"
-    #         )
-    #     n_cond_chains = cond_chains
-
     logger.info(
         f"Found {len(valid_file_name_list)} valid files, cond chains: {n_cond_chains}, binder chains: {n_binder_chains}"
     )
@@ -232,6 +228,8 @@ def main():
         "cond_chains": ListValue([""]),
         "binder_chains": ListValue([""]),  # required
         "is_mmcif": False,
+        "orig_seqs_json": "",
+        "seed": 2025,
         **eval_configs,
     }
     configs = parse_configs(config_dict, arg_str=parse_sys_args())
@@ -269,8 +267,10 @@ def main():
                 cond_chains=configs.cond_chains,
                 dump_dir=configs.dump_dir,
             )
+        if len(configs.orig_seqs_json) > 0:
+            input_data["orig_seqs_json"] = configs.orig_seqs_json
         # Run task
-        run_task(input_data, configs)
+        run_task(input_data, configs, seed=configs.seed)
 
 
 if __name__ == "__main__":

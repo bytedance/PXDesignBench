@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 
 import pandas as pd
@@ -25,14 +26,29 @@ from eval_design.utils import save_eval_results
 
 @register_task("binder")
 class BinderTask(BaseTask):
-    def __init__(self, input_data, cfg, device_id, seed):
+    def __init__(self, input_data, cfg, device_id: int, seed: int):
+        """
+        Initialize a BinderTask instance.
+
+        Args:
+            input_data (dict): Task input parameters including PDB paths and chain specifications.
+            cfg (dict): Configuration dictionary with task settings.
+            device_id (int): GPU device ID (-1 for CPU).
+            seed (int): Random seed for reproducibility.
+
+        Validates:
+            - Exactly one binder chain is specified (multiple binder chains not supported).
+        """
         self.task_type = "binder"
         self.task_name = input_data.get("name", "binder")
+        assert "cond_chains" in input_data
+        assert "binder_chains" in input_data
         self.cond_chains = input_data["cond_chains"]
         self.binder_chains = input_data["binder_chains"]
         self.pdb_name_to_binder_seq_list = input_data.get(
             "pdb_name_to_binder_seq_list", None
         )
+        self.orig_seqs_json = input_data.get("orig_seqs_json", None)
 
         # Default values
         self.use_binder_seq_list = cfg.get("use_binder_seq_list", False)
@@ -59,6 +75,20 @@ class BinderTask(BaseTask):
         return datas
 
     def design_sequence(self, verbose=True):
+        """
+        Generates binder sequences based on task configuration.
+
+        Supports three modes:
+        1. Use pre-provided sequence lists (self.use_binder_seq_list)
+        2. Use ground truth sequences from PDB files (self.use_gt_seq)
+        3. De novo design using MPNN (default)
+
+        Args:
+            verbose (bool, optional): Whether to print detailed progress. Defaults to True.
+
+        Returns:
+            list[dict]: List of design results with keys "name", "seq_idx", and "sequence".
+        """
         if self.use_binder_seq_list:
             results = self.prepare_data_from_seq_list()
         elif self.use_gt_seq:
@@ -82,6 +112,18 @@ class BinderTask(BaseTask):
         return results
 
     def run(self):
+        """
+        Executes the complete binder design evaluation workflow.
+
+        Workflow steps:
+        1. Designs sequences via design_sequence()
+        2. Runs structure predictions (AF2 complex/monomer, Protenix) based on config
+        3. Calculates secondary structure and diversity metrics
+        4. Saves sample-level results to CSV and summary metrics to JSON
+
+        Returns:
+            dict: Dictionary with task metadata and output file paths.
+        """
         results = self.design_sequence()
         self.check_results(results)
         binder_chain = self.binder_chains[0]
@@ -93,11 +135,17 @@ class BinderTask(BaseTask):
         if self.eval_binder_monomer:
             self.af2_monomer_predict(results, af2_pred_path)
 
+        if self.orig_seqs_json is not None:
+            with open(self.orig_seqs_json, "r") as f:
+                orig_seqs = json.load(f)
+        else:
+            orig_seqs = None
+
         if self.eval_protenix:
-            pred_pdb_paths = self.protenix_predict(results)
+            self.protenix_predict(results, orig_seqs=orig_seqs)
 
         if self.eval_protenix_large:
-            self.protenix_predict(results, is_large=True)
+            self.protenix_predict(results, orig_seqs=orig_seqs, is_large=True)
 
         self.cal_secondary(results, binder_chain)
         div = self.cal_diversity()
@@ -122,6 +170,19 @@ class BinderTask(BaseTask):
         }
 
     def check_results(self, results):
+        """
+        Validates design results for consistency and correctness.
+
+        Checks:
+        1. No duplicate entries (by structure name + sequence index)
+        2. Correct number of sequences per structure (when not using pre-provided lists)
+
+        Args:
+            results (list[dict]): List of design results from design_sequence()
+
+        Raises:
+            ValueError: If duplicates are found or sequence count is incorrect.
+        """
         result_names = [
             result["name"] + f"_seq{result['seq_idx']}" for result in results
         ]

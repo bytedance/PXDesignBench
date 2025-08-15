@@ -1,10 +1,10 @@
 # Contributing
 
-Thank you for investing your time in contributing to protenix project! 
+Thank you for investing your time in contributing to PXDesignBench project! 
 
 Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
 
-This guide details how to use issues and pull requests to improve protenix project.
+This guide details how to use issues and pull requests to improve PXDesignBench project.
 
 ## General Guidelines
 
@@ -41,7 +41,7 @@ When filing an issue, please check existing open, or recently closed, issues to 
 
 ### Find interesting issue
 
-If you spot a problem with the problem, [search if an issue already exists](https://github.com/bytedance/protenix/issues). If a related issue doesn't exist, you can open a new issue using [issue template](https://github.com/bytedance/protenix/issues/new/choose). 
+If you spot a problem with the problem, [search if an issue already exists](https://github.com/bytedance/PXDesignBench/issues). If a related issue doesn't exist, you can open a new issue using [issue template](https://github.com/bytedance/PXDesignBench/issues/new/choose). 
 
 ### Solve an issue
 

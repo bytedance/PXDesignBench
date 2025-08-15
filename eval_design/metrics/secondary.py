@@ -20,6 +20,18 @@ from biotite.structure.io.pdb import PDBFile
 
 
 def cacl_secondary_structure(path, binder_chain=None):
+    """
+    Calculate the ratio of secondary structures in a PDB or CIF file.
+
+    Args:
+        path (str): Path to the PDB (.pdb) or CIF (.cif) file.
+        binder_chain (str, optional): The chain ID to filter the structure.
+            If provided, only atoms from this chain will be considered. Defaults to None.
+
+    Returns:
+        tuple: The ratio of secondary structures (alpha, beta, loop)
+    """
+    # Check the file extension and read the file accordingly
     if path.endswith(".cif"):
         pdb_name = pdbx.PDBxFile.read(path)
         atom_array = pdbx.get_structure(pdb_name, model=1)
@@ -27,7 +39,7 @@ def cacl_secondary_structure(path, binder_chain=None):
         pdb_name = PDBFile.read(path)
         atom_array = pdb_name.get_structure()[0]
     else:
-        raise ValueError
+        raise ValueError("File must be either a .pdb or .cif file")
 
     if binder_chain is not None:
         chain_mask = atom_array.chain_id == binder_chain
@@ -46,10 +58,25 @@ def cacl_secondary_structure(path, binder_chain=None):
 
 
 def cacl_ref_rg(num_res):
+    """
+    reference radius of gyration value.
+    Ref: Bindcraft repo (https://github.com/martinpacesa/BindCraft/blob/05702c435e2172a99c2b3faf87487badb6e54727/functions/colabdesign_utils.py#L369)
+    """
     return 2.38 * num_res**0.365
 
 
 def get_chain_rg(pdb_file, chain_id, atom_name="CA"):
+    """
+    Calculate the radius of gyration of a specific chain in a PDB file.
+
+    Args:
+        pdb_file (str): Path to the PDB file.
+        chain_id (str): The chain ID to calculate the radius of gyration for.
+        atom_name (str, optional): The name of the atom to use for calculation. Defaults to "CA".
+
+    Returns:
+        tuple: The radius of gyration and the normalized radius of gyration.
+    """
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("struct", pdb_file)
     coords = []

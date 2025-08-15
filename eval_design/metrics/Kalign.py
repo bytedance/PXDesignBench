@@ -25,6 +25,17 @@ from Bio import PDB
 
 
 def get_coordinates(structure, chain_id=None):
+    """
+    Extract the coordinates of alpha carbon (CA) atoms from a protein structure.
+
+    Args:
+        structure (Bio.PDB.Structure.Structure): A protein structure object parsed by Bio.PDB.PDBParser.
+        chain_id (str, optional): The ID of the specific protein chain to extract coordinates from.
+                                  If None, coordinates are extracted from all chains. Defaults to None.
+
+    Returns:
+        numpy.ndarray: A 2D array where each row represents the 3D coordinates of a CA atom.
+    """
     coords = []
     for model in structure:
         for chain in model:
@@ -38,6 +49,16 @@ def get_coordinates(structure, chain_id=None):
 
 
 def kabsch_algorithm(P, Q):
+    """
+    Apply the Kabsch algorithm to find the optimal rotation matrix that aligns two sets of points.
+
+    Args:
+        P (numpy.ndarray): The first set of points with shape (N, 3)
+        Q (numpy.ndarray): The second set of points with shape (N, 3)
+
+    Returns:
+        tuple: A tuple containing the rotation matrix (R), centroid of P (C_P), and centroid of Q (C_Q).
+    """
     # Centroid of P and Q
     C_P = np.mean(P, axis=0)
     C_Q = np.mean(Q, axis=0)
@@ -74,6 +95,17 @@ def calculate_rmsd(P, Q):
 
 
 def align_and_calculate_rmsd(file1, file2):
+    """
+    Align two protein structures based on their CA atoms and calculate RMSD.
+
+    Args:
+        file1 (str): Path to the first PDB file.
+        file2 (str): Path to the second PDB file.
+
+    Returns:
+        float or None: The RMSD value between the aligned structures.
+        Returns None if the number of CA atoms in the two structures differs.
+    """
     parser = PDB.PDBParser(QUIET=True)
     structure1 = parser.get_structure("structure1", file1)
     structure2 = parser.get_structure("structure2", file2)
@@ -97,6 +129,18 @@ def align_and_calculate_rmsd(file1, file2):
 
 
 def Binder_align_and_calculate_rmsd(file1, file2, chain_id):
+    """
+    Align two protein structures based on their CA atoms, with one structure's specific chain, and calculate RMSD.
+
+    Args:
+        file1 (str): Path to the first PDB file.
+        file2 (str): Path to the second PDB file.
+        chain_id (str): The ID of the specific protein chain to extract coordinates from.
+
+    Returns:
+        float or None: The RMSD value between the aligned structures.
+        Returns None if the number of CA atoms in the two structures differs.
+    """
     parser = PDB.PDBParser(QUIET=True)
     structure1 = parser.get_structure("structure1", file1)
     structure2 = parser.get_structure("structure2", file2)
