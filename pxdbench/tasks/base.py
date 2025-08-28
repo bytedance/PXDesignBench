@@ -20,9 +20,9 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 
-from eval_design.metrics import diversity, secondary
-from eval_design.tools.af2.af2_predictor import AF2ComplexPredictor, AF2MonomerPredictor
-from eval_design.tools.ptx import ptx
+from pxdbench.metrics import diversity, secondary
+from pxdbench.tools.af2.af2_predictor import AF2ComplexPredictor, AF2MonomerPredictor
+from pxdbench.tools.ptx import ptx
 
 logger = logging.getLogger(__name__)
 

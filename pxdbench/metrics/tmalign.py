@@ -26,7 +26,7 @@ from pathlib import Path
 
 from Bio import PDB
 
-from eval_design.globals import TMALIGN_PATH
+from pxdbench.globals import TMALIGN_PATH
 
 
 def extract_chain(input_pdb: str, chain_id: str, output_pdb: str):

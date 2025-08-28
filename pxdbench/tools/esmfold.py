@@ -20,7 +20,7 @@ from transformers.models.esm.openfold_utils.feats import atom14_to_atom37
 from transformers.models.esm.openfold_utils.protein import Protein as OFProtein
 from transformers.models.esm.openfold_utils.protein import to_pdb
 
-from eval_design.globals import ESMFOLD_MODEL_PATH
+from pxdbench.globals import ESMFOLD_MODEL_PATH
 
 
 class ESMFold:

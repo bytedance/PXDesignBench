@@ -30,7 +30,7 @@ def main(args):
     from torch.utils.data import DataLoader
     from torch.utils.data.dataset import Subset, random_split
 
-    from eval_design.tools.protmpnn.protein_mpnn_utils import (
+    from pxdbench.tools.protmpnn.protein_mpnn_utils import (
         ProteinMPNN,
         StructureDataset,
         StructureDatasetPDB,

@@ -31,14 +31,14 @@ from protenix.utils.seed import seed_everything
 from protenix.utils.torch_utils import to_device
 from runner.dumper import DataDumper
 
-from eval_design.metrics.Kalign import align_and_calculate_rmsd
-from eval_design.tools.ptx.ptx_utils import (
+from pxdbench.metrics.Kalign import align_and_calculate_rmsd
+from pxdbench.tools.ptx.ptx_utils import (
     download_infercence_cache,
     get_configs,
     patch_with_orig_seqs,
     populate_msa_with_cache,
 )
-from eval_design.utils import concat_dict_values, convert_cif_to_pdb
+from pxdbench.utils import concat_dict_values, convert_cif_to_pdb
 
 logger = logging.getLogger(__name__)
 

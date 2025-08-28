@@ -15,7 +15,7 @@
 import multiprocessing as mp
 from itertools import combinations
 
-from eval_design.metrics import tmalign
+from pxdbench.metrics import tmalign
 
 
 def compute_pair_tm_score(args):

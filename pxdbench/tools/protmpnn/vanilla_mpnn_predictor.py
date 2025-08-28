@@ -18,7 +18,7 @@ import subprocess
 import tempfile
 from typing import Any, Dict, List
 
-from eval_design.globals import MPNN_CKPT_PATH
+from pxdbench.globals import MPNN_CKPT_PATH
 
 
 class VanillaMPNNPredictor:

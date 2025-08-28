@@ -24,9 +24,9 @@ from protenix.config import parse_configs, parse_sys_args
 from protenix.config.extend_types import RequiredValue
 from protenix.utils.distributed import DIST_WRAPPER
 
-from configs.configs_eval import eval_configs
-from eval_design.run import find_files_with_ext, run_task
-from eval_design.utils import convert_cifs_to_pdbs
+from pxdbench.pxd_configs.eval import eval_configs
+from pxdbench.run import find_files_with_ext, run_task
+from pxdbench.utils import convert_cifs_to_pdbs
 
 logger = logging.getLogger(__name__)
 

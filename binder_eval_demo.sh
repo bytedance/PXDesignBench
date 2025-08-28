@@ -26,7 +26,7 @@ is_mmcif=true
 N_seqs=2
 mpnn_temp=0.0001
 
-python3 eval_design/run.py \
+python3 ./pxdbench/run.py \
 --data_dir ${input_dir} \
 --dump_dir ${dump_dir} \
 --is_mmcif ${is_mmcif} \

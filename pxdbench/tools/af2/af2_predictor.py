@@ -15,7 +15,7 @@
 import os
 from typing import Dict, List
 
-from eval_design.tools.base import BasePredictor
+from pxdbench.tools.base import BasePredictor
 
 
 class AF2ComplexPredictor(BasePredictor):

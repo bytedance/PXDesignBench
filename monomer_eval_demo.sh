@@ -26,7 +26,7 @@ N_seqs=8
 mpnn_temp=0.1
 mpnn_model=ca
 
-python3 ./eval_design/run_monomer.py \
+python3 ./pxdbench/run_monomer.py \
 --data_dir ${input_dir} \
 --dump_dir ${dump_dir} \
 --is_mmcif ${is_mmcif} \

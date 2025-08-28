@@ -21,9 +21,9 @@ from protenix.config import parse_configs, parse_sys_args
 from protenix.config.extend_types import ListValue, RequiredValue
 from protenix.utils.logger import get_logger
 
-from configs.configs_eval import eval_configs
-from eval_design.tasks import get_task_class
-from eval_design.utils import convert_cif_to_pdb
+from pxdbench.pxd_configs.eval import eval_configs
+from pxdbench.tasks import get_task_class
+from pxdbench.utils import convert_cif_to_pdb
 
 logger = get_logger(__name__)
 

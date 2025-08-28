@@ -18,12 +18,12 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from eval_design.metrics import consistency
-from eval_design.tasks.base import BaseTask
-from eval_design.tasks.registry import register_task
-from eval_design.tools import esmfold
-from eval_design.tools.protmpnn.vanilla_mpnn_predictor import VanillaMPNNPredictor
-from eval_design.utils import save_eval_results
+from pxdbench.metrics import consistency
+from pxdbench.tasks.base import BaseTask
+from pxdbench.tasks.registry import register_task
+from pxdbench.tools import esmfold
+from pxdbench.tools.protmpnn.vanilla_mpnn_predictor import VanillaMPNNPredictor
+from pxdbench.utils import save_eval_results
 
 
 @register_task("monomer")

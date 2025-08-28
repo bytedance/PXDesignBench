@@ -10,8 +10,8 @@ import numpy as np
 from biotite.structure.io import load_structure
 from biotite.structure.io.pdb import PDBFile
 
-from eval_design.globals import TMALIGN_PATH
-from eval_design.utils import convert_cifs_to_pdbs, str2bool
+from pxdbench.globals import TMALIGN_PATH
+from pxdbench.utils import convert_cifs_to_pdbs, str2bool
 
 warnings.filterwarnings("ignore", module="biotite")
 

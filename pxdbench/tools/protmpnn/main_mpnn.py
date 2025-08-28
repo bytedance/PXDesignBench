@@ -19,8 +19,8 @@ import os
 from colabdesign.mpnn import clear_mem, mk_mpnn_model
 from ml_collections import ConfigDict
 
-from eval_design.tools.biopython_utils import get_interface_residue_id, hotspot_residues
-from eval_design.utils import extract_chain_sequence, seed_everything
+from pxdbench.tools.biopython_utils import get_interface_residue_id, hotspot_residues
+from pxdbench.utils import extract_chain_sequence, seed_everything
 
 
 def get_pdb_basename(pdb_path: str):

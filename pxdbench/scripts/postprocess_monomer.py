@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from eval_design.metrics.diversity import compute_diversity
-from eval_design.utils import str2bool
+from pxdbench.metrics.diversity import compute_diversity
+from pxdbench.utils import str2bool
 
 FOLDSEEK_BIN = "your_foldseek_dir/bin/foldseek"
 FOLDSEEK_DB = "your_foldseek_dir/foldseek_db/pdb/pdb"

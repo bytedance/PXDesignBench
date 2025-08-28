@@ -17,11 +17,11 @@ import os
 
 import pandas as pd
 
-from eval_design.tasks.base import BaseTask
-from eval_design.tasks.registry import register_task
-from eval_design.tools.protmpnn.main_mpnn import get_gt_sequence
-from eval_design.tools.protmpnn.mpnn_predictor import MPNNPredictor
-from eval_design.utils import save_eval_results
+from pxdbench.tasks.base import BaseTask
+from pxdbench.tasks.registry import register_task
+from pxdbench.tools.protmpnn.main_mpnn import get_gt_sequence
+from pxdbench.tools.protmpnn.mpnn_predictor import MPNNPredictor
+from pxdbench.utils import save_eval_results
 
 
 @register_task("binder")

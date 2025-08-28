@@ -14,7 +14,7 @@
 
 import os
 
-from eval_design.metrics import Kalign, tmalign
+from pxdbench.metrics import Kalign, tmalign
 
 
 def self_consistency(inputs: dict):

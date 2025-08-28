@@ -27,7 +27,7 @@ The codebase is organized into three main components:
 ```bash
 pip install git+https://github.com/bytedance/Protenix.git@dev_design
 ```
-If you encounter any issues during installation, please refer to the official [Protenix Installation Guide](https://github.com/bytedance/Protenix/tree/main?tab=readme-ov-file#-installation) for detailed instructions.
+Note: You need to install Protenix from the **`dev_design`** branch. If you encounter any issues during installation, please refer to the official [Protenix Installation Guide](https://github.com/bytedance/Protenix/tree/main?tab=readme-ov-file#-installation) for detailed instructions.
 
 2. **Install additional dependencies** for ProteinMPNN, AlphaFold2, and ESMFold:
 ```bash
@@ -44,7 +44,7 @@ pip install transformers==4.51.3
   - [Soluble model weights](https://github.com/dauparas/ProteinMPNN/tree/main/soluble_model_weights)  
   - [Vanilla model weights](https://github.com/dauparas/ProteinMPNN/tree/main/vanilla_model_weights)
 
-The default weight paths are defined in **`eval_design/globals.py`**.  
+The default weight paths are defined in **`pxdbench/globals.py`**.  
 After downloading, update the variables in `globals.py` to reflect your local directory structure.
 
 ### 📁 Model Weight Organization
@@ -161,7 +161,7 @@ PXDesignBench exposes device IDs for each integrated model, enabling:
 
 For example, the following is a pseudocode snippet illustrating online evaluation tracking in the DDP model training pipeline:
 ```python
-from eval_design.run import run_task
+from pxdbench.run import run_task
 from protenix.utils.distributed import DIST_WRAPPER
 
 @torch.no_grad()
@@ -214,17 +214,32 @@ Please follow the official guide here: [Foldseek Installation](https://github.co
 
 - **Monomer post-processing**
 ```bash
-python3 eval_design/scripts/postprocess_monomer.py --input_dir examples/monomer
+python3 pxdbench/scripts/postprocess_monomer.py --input_dir examples/monomer
 ```
 - **Binder post-processing**
 ```bash
-python3 eval_design/scripts/postprocess_binder.py --input_dir examples/binder --is_mmcif true
+python3 pxdbench/scripts/postprocess_binder.py --input_dir examples/binder --is_mmcif true
 ```
 
 ---
 
 ## 📚 Citing Related Work
 If you use this repository, please cite the following works:
+
+<details>
+<summary>PXDesign</summary>
+
+```bibtex
+@article{ren2025pxdesign,
+  title={PXDesign: Fast, Modular, and Accurate De Novo Design of Protein Binders},
+  author={Ren, Milong and Sun, Jinyuan and Guan, Jiaqi and Liu, Cong and Gong, Chengyue and Wang, Yuzhe and Wang, Lan and Cai, Qixu and Chen, Xinshi and Xiao, Wenzhi},
+  journal={bioRxiv},
+  pages={2025--08},
+  year={2025},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
+</details>
 
 <details>
 <summary>Protenix</summary>

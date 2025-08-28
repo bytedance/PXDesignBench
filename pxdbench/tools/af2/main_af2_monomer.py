@@ -21,10 +21,10 @@ import re
 from colabdesign import clear_mem, mk_afdesign_model
 from colabdesign.shared.utils import copy_dict
 
-from eval_design.globals import AF2_PARAMS_PATH
-from eval_design.metrics.Kalign import Binder_align_and_calculate_rmsd
-from eval_design.tools.af2.af2_utils import add_cyclic_offset
-from eval_design.utils import concat_dict_values, seed_everything
+from pxdbench.globals import AF2_PARAMS_PATH
+from pxdbench.metrics.Kalign import Binder_align_and_calculate_rmsd
+from pxdbench.tools.af2.af2_utils import add_cyclic_offset
+from pxdbench.utils import concat_dict_values, seed_everything
 
 logger = logging.getLogger(__name__)
 
