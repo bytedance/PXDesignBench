@@ -18,7 +18,7 @@ import subprocess
 import tempfile
 from typing import Any, Dict, List
 
-from pxdbench.globals import MPNN_CKPT_PATH
+from pxdbench.globals import MPNN_CKPT_PATH, _require
 
 
 class VanillaMPNNPredictor:
@@ -27,6 +27,11 @@ class VanillaMPNNPredictor:
         self.device_id = device_id
         self.seed = seed
         self.verbose = verbose
+        _require(
+            os.path.join(
+                MPNN_CKPT_PATH[self.cfg["model_type"]], self.cfg["model_name"] + ".pt"
+            )
+        )
 
         dir_name = os.path.dirname(__file__)
         self.prepare_script_path = os.path.join(dir_name, "parse_multiple_chains.py")

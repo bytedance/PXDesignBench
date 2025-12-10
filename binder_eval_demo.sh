@@ -17,7 +17,31 @@ use_deepspeed_evo_attention=false
 
 export LAYERNORM_TYPE=fast_layernorm
 export USE_DEEPSPEED_EVO_ATTENTION=${use_deepspeed_evo_attention}
+export TOOL_WEIGHTS_ROOT="$(pwd)/tool_weights"
 
+# ===============================
+# Tool Weights Sanity Check
+# ===============================
+ROOT="${TOOL_WEIGHTS_ROOT}"
+declare -a REQUIRED_FILES=(
+  # ---- AF2 ----
+  "$ROOT/af2/params_model_1.npz"
+  "$ROOT/af2/params_model_1_ptm.npz"
+)
+echo "Checking tool weights in: $ROOT"
+for f in "${REQUIRED_FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo -e "\nMissing required tool weight:"
+    echo "   $f"
+    echo -e "\nPlease run:"
+    echo "   bash download_tool_weights.sh"
+    exit 1
+  fi
+done
+
+# ===============================
+# Main
+# ===============================
 input_dir="./examples/binder"
 dump_dir="./output/binder"
 
@@ -35,7 +59,7 @@ python3 ./pxdbench/run.py \
 --binder.num_seqs ${N_seqs} \
 --binder.tools.mpnn.temperature ${mpnn_temp} \
 --binder.tools.af2.use_binder_template true \
---binder.tools.ptx.dtype ${dtype} \
---binder.tools.ptx.use_deepspeed_evo_attention ${use_deepspeed_evo_attention} \
+--binder.tools.ptx_mini.dtype ${dtype} \
+--binder.tools.ptx_mini.use_deepspeed_evo_attention ${use_deepspeed_evo_attention} \
 --binder_chains ${binder_chains} \
 --binder.use_gt_seq false 

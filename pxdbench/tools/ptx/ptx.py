@@ -31,7 +31,8 @@ from protenix.utils.seed import seed_everything
 from protenix.utils.torch_utils import to_device
 from runner.dumper import DataDumper
 
-from pxdbench.metrics.Kalign import align_and_calculate_rmsd
+from pxdbench.permutation import permute_generated_min_complex_rmsd
+from pxdbench.tools.ptx.interface import ProtenixAPI
 from pxdbench.tools.ptx.ptx_utils import (
     download_infercence_cache,
     get_configs,
@@ -43,16 +44,19 @@ from pxdbench.utils import concat_dict_values, convert_cif_to_pdb
 logger = logging.getLogger(__name__)
 
 
-class ProtenixFilter:
+class ProtenixFilter(ProtenixAPI):
     def __init__(self, cfg, device="cuda:0"):
         self.cfg = cfg
         self.model_name = cfg.model_name
         self.ptx_cfg = get_configs(self.model_name)
+        self.ptx_cfg.model_name = self.model_name
         self.ptx_cfg.use_deepspeed_evo_attention = self.cfg.get(
             "use_deepspeed_evo_attention", True
         )
         self.ptx_cfg.data.msa.min_size.test = 2000
         self.ptx_cfg.data.msa.sample_cutoff.test = 2000
+        if self.cfg.get("load_checkpoint_dir", ""):
+            self.ptx_cfg.load_checkpoint_dir = self.cfg.load_checkpoint_dir
         self.ptx_ckpt_path = f"{self.ptx_cfg.load_checkpoint_dir}/{self.model_name}.pt"
         self.dtype = cfg.dtype
         self.device = device
@@ -115,6 +119,7 @@ class ProtenixFilter:
         dump_dir: str,
         binder_chain_idx=None,
         orig_seqs: list = None,
+        use_template=False,
     ):
         input_dicts = []
         for item in data_list:
@@ -142,7 +147,10 @@ class ProtenixFilter:
             input_dicts.append(new_d)
 
         if orig_seqs is not None:
-            input_dicts = patch_with_orig_seqs(input_dicts, orig_seqs)
+            # cause the input must be PDB file, we will trim the chain id
+            input_dicts = patch_with_orig_seqs(
+                input_dicts, orig_seqs, trim=True, use_template=use_template
+            )
 
         # precompute MSA if necessary
         input_dicts = populate_msa_with_cache(input_dicts)
@@ -181,12 +189,13 @@ class ProtenixFilter:
         verbose=True,
         binder_chain_idx=None,
         is_cyclic=False,
+        use_msa=True,
         suffix="",
     ):
         inference_dataset = InferenceDataset(
             input_json_path=input_json_path,
             dump_dir=None,
-            use_msa=True,
+            use_msa=use_msa,
             configs=self.ptx_cfg,
         )
         os.makedirs(dump_dir, exist_ok=True)
@@ -194,7 +203,7 @@ class ProtenixFilter:
 
         all_predictions = {}
         seed = seed if isinstance(seed, int) else 2025
-        seed_everything(seed=seed, deterministic=True)
+        seed_everything(seed=seed, deterministic=False)
         self.model.configs.sample_diffusion["N_sample"] = N_sample
         self.model.configs.sample_diffusion["N_step"] = N_step
         self.model.configs.sample_diffusion["step_scale_eta"] = step_scale_eta
@@ -257,7 +266,9 @@ class ProtenixFilter:
                     design_pdb_dir, sample_name.rsplit("_seq", 1)[0] + ".pdb"
                 )
                 if os.path.isfile(design_pdb_path):
-                    rmsd = align_and_calculate_rmsd(pred_pdb_path, design_pdb_path)
+                    rmsd = permute_generated_min_complex_rmsd(
+                        pred_pdb_path, design_pdb_path, pred_pdb_path
+                    )
                 else:
                     rmsd = None
                 if rmsd is not None:
@@ -283,7 +294,9 @@ class ProtenixFilter:
                     f"ptx{suffix}_ptm_target": np.mean(ptm_target),
                     f"ptx{suffix}_iptm": float(s["iptm"]),
                     f"ptx{suffix}_ptm": float(s["ptm"]),
-                    f"ptx{suffix}_iptm_binder": float(s["chain_iptm"][-1]),
+                    f"ptx{suffix}_iptm_binder": float(
+                        s["chain_iptm"][binder_chain_idx]
+                    ),
                     f"ptx{suffix}_pred_design_rmsd": rmsd,
                 }
                 stat_list.append(ptx_s)
@@ -307,3 +320,71 @@ class ProtenixFilter:
             item.update(all_predictions[design_name])
 
         return pred_pdb_paths
+
+    def inference_only(
+        self,
+        input_json_path: str,
+        dump_dir: str,
+        seed=2025,
+        N_sample=1,
+        N_step=2,
+        step_scale_eta=1.0,
+        gamma0=0,
+        N_cycle=4,
+        use_msa=True,
+    ):
+        inference_dataset = InferenceDataset(
+            input_json_path=input_json_path,
+            use_msa=use_msa,
+            dump_dir=None,
+            configs=self.ptx_cfg,
+        )
+        os.makedirs(dump_dir, exist_ok=True)
+        dumper = DataDumper(base_dir=dump_dir)
+
+        seed = seed if isinstance(seed, int) else 2025
+        seed_everything(seed=seed, deterministic=False)
+        self.model.configs.sample_diffusion["N_sample"] = N_sample
+        self.model.configs.sample_diffusion["N_step"] = N_step
+        self.model.configs.sample_diffusion["step_scale_eta"] = step_scale_eta
+        self.model.configs.sample_diffusion["gamma0"] = gamma0
+        self.model.N_cycle = N_cycle
+        self.model.configs.model.N_cycle = N_cycle
+        pred_pdb_paths = {}
+        pred_stats = {}
+        for idx in range(len(inference_dataset)):
+            data, atom_array, data_error_message = inference_dataset[idx]
+            sample_name = data["sample_name"]
+            save_dir = dumper._get_dump_dir("", sample_name, seed)
+            if len(data_error_message) > 0:
+                print(f"Skip data {idx} because of the error: {data_error_message}")
+                continue
+
+            print(
+                (
+                    f"[Rank ({data['sample_index'] + 1}/{len(inference_dataset)})] {sample_name}: "
+                    f"N_asym {data['N_asym'].item()}, N_token {data['N_token'].item()}, "
+                    f"N_atom {data['N_atom'].item()}, N_msa {data['N_msa'].item()}"
+                )
+            )
+            prediction = self.predict_one(data)
+            # keys: ['coordinate', 'summary_confidence', 'full_data', 'plddt', 'plddt_un', 'pae', 'pde', 'resolved'])
+            stats = prediction["summary_confidence"]
+            dumper.dump(
+                "",
+                sample_name,
+                seed,
+                pred_dict=prediction,
+                atom_array=atom_array,
+                entity_poly_type=data["entity_poly_type"],
+            )
+            pred_cif_path = os.path.join(
+                save_dir,
+                "predictions",
+                f"{sample_name}_seed_{seed}_sample_0.cif",
+            )
+            pred_pdb_path = os.path.join(dump_dir, f"{sample_name}.pdb")
+            convert_cif_to_pdb(pred_cif_path, pred_pdb_path)
+            pred_pdb_paths[sample_name] = pred_pdb_path
+            pred_stats[sample_name] = stats
+        return pred_pdb_paths, pred_stats

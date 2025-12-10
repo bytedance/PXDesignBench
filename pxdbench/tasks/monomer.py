@@ -20,10 +20,11 @@ from tqdm.auto import tqdm
 
 from pxdbench.metrics import consistency
 from pxdbench.tasks.base import BaseTask
-from pxdbench.tasks.registry import register_task
 from pxdbench.tools import esmfold
 from pxdbench.tools.protmpnn.vanilla_mpnn_predictor import VanillaMPNNPredictor
 from pxdbench.utils import save_eval_results
+
+from .registry import register_task
 
 
 @register_task("monomer")

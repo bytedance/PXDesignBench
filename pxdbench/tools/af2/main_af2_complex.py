@@ -22,7 +22,9 @@ from colabdesign import clear_mem, mk_afdesign_model
 from colabdesign.shared.utils import copy_dict
 
 from pxdbench.globals import AF2_PARAMS_PATH
-from pxdbench.tools.af2.af2_utils import add_cyclic_offset
+from pxdbench.metrics.Kalign import align_and_calculate_rmsd
+from pxdbench.permutation import permute_generated_min_complex_rmsd
+from pxdbench.tools.af2.af2_utils import add_cyclic_offset, renumber_by_rebuilding
 from pxdbench.utils import concat_dict_values, seed_everything
 
 logger = logging.getLogger(__name__)
@@ -32,8 +34,10 @@ def predict_binder_structure(
     prediction_model,
     sequence: str,
     design_name: str,
+    ori_design_pdb: str,
     model_indices: list[int],
     save_dir: str,
+    design_chain_layout: str,
 ):
     """
     Predict binder structure using AlphaFold2 and compute structural metrics.
@@ -42,8 +46,10 @@ def predict_binder_structure(
         prediction_model: Initialized ColabDesign AFDesign model instance.
         sequence (str): Amino acid sequence of the binder to predict.
         design_name (str): Unique identifier for the design (e.g., "pdbname_seq0").
+        ori_design_pdb: Path to designed pdb.
         model_indices (list[int]): List of AlphaFold2 model indices to use (0-4).
         save_dir (str): Directory to save predicted PDB files and metrics.
+        design_chain_layout (str): "cond_first" or "cond_last".
 
     Returns:
         dict: Prediction statistics (pLDDT, pTM, i_pTM, etc.) for each model index.
@@ -80,6 +86,11 @@ def predict_binder_structure(
             }
             # save pdb and stats
             prediction_model.save_pdb(output_pdb)
+            # renumber
+            renumber_by_rebuilding(
+                ori_design_pdb, output_pdb, output_pdb, ref_layout=design_chain_layout
+            )
+            permute_generated_min_complex_rmsd(output_pdb, ori_design_pdb, output_pdb)
             with open(output_stats_json, "w") as f:
                 json.dump(stats, f)
 
@@ -91,6 +102,7 @@ def predict_binder_structure(
 def complex_prediction(
     input_dir: str,
     save_dir: str,
+    design_pdb_dir: str,
     data_list: list[dict],
     cond_chain: str,
     binder_chain: str,
@@ -104,6 +116,7 @@ def complex_prediction(
     Args:
         input_dir (str): Directory containing input PDB files for target structures.
         save_dir (str): Directory to save prediction outputs (PDBs, metrics).
+        design_pdb_dir (str): Directory to save designed pdbs.
         data_list (list[dict]): List of design data with keys "name", "sequence", "seq_idx".
         cond_chain (str): Chain ID(s) of the target (conditioning) structure(s).
         binder_chain (str): Chain ID of the binder to design/predict.
@@ -152,12 +165,34 @@ def complex_prediction(
             add_cyclic_offset(prediction_model)
 
         design_name = f"{name}_seq{seq_idx}"
+        ori_design_pdb = os.path.join(design_pdb_dir, name + ".pdb")
         stats = predict_binder_structure(
-            prediction_model, seq, design_name, af2_cfg["model_ids"], save_dir
+            prediction_model,
+            seq,
+            design_name,
+            ori_design_pdb,
+            af2_cfg["model_ids"],
+            save_dir,
+            design_chain_layout="cond_last" if "A" in binder_chain else "cond_first",
         )
         stat_list = []
         for model_id in af2_cfg["model_ids"]:
             s = stats[model_id]
+
+            # compute predict-design RMSD
+            pred_complex_pdb = os.path.join(
+                save_dir, f"{design_name}_model{model_id + 1}.pdb"
+            )
+            if os.path.isfile(ori_design_pdb):
+                complex_rmsd = align_and_calculate_rmsd(
+                    pred_complex_pdb, ori_design_pdb
+                )
+                if complex_rmsd is not None:
+                    complex_rmsd = round(complex_rmsd, 2)
+            else:
+                complex_rmsd = None
+            s["af2_complex_pred_design_rmsd"] = complex_rmsd
+
             stat_list.append(s)
         stat = concat_dict_values(stat_list)
         if verbose:
@@ -187,6 +222,7 @@ def main():
         results = complex_prediction(
             input_dir=input_data["input_dir"],
             save_dir=input_data["save_dir"],
+            design_pdb_dir=input_data["design_pdb_dir"],
             data_list=input_data["data_list"],
             cond_chain=input_data["cond_chain"],
             binder_chain=input_data["binder_chain"],

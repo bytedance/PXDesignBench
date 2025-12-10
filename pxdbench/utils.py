@@ -30,6 +30,7 @@ from Bio.PDB import *
 from Bio.PDB.Polypeptide import is_aa
 from biotite.structure import get_residue_starts
 from natsort import natsorted
+
 from protenix.data import ccd
 from protenix.data.parser import MMCIFParser
 
@@ -140,11 +141,13 @@ def convert_cif_to_pdb(
     if binder_chains is not None and len(new_binder_chains) == 0:
         raise ValueError(f"binder chains {binder_chains} not found in the cif file.")
 
-    if not os.path.exists(out_pdb_path):
-        io = PDBIO()
-        io.set_structure(structure)
-        io.save(out_pdb_path)
-        # print(f"Saved converted PDB to: {out_pdb_path}")
+    if os.path.exists(out_pdb_path):
+        print(
+            f"[WARNING] PDB file {out_pdb_path} already exists when trying to convert a CIF file to it"
+        )
+    io = PDBIO()
+    io.set_structure(structure)
+    io.save(out_pdb_path)
     return new_cond_chains, new_binder_chains
 
 

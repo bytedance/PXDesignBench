@@ -13,12 +13,15 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 from typing import Union
 
 import torch
+import torch.distributed as dist
 from protenix.config import parse_configs, parse_sys_args
 from protenix.config.extend_types import ListValue, RequiredValue
+from protenix.utils.distributed import DIST_WRAPPER
 from protenix.utils.logger import get_logger
 
 from pxdbench.pxd_configs.eval import eval_configs
@@ -218,6 +221,47 @@ def prepare_tasks_from_json(json_path):
     return tasks
 
 
+class EvalRunner(object):
+    def __init__(self, configs):
+        self.configs = configs
+        self.init_env()
+
+    def init_env(self) -> None:
+        self.print(
+            f"Distributed environment: world size: {DIST_WRAPPER.world_size}, "
+            + f"global rank: {DIST_WRAPPER.rank}, local rank: {DIST_WRAPPER.local_rank}"
+        )
+        self.use_cuda = torch.cuda.device_count() > 0
+        if self.use_cuda:
+            self.device = torch.device("cuda:{}".format(DIST_WRAPPER.local_rank))
+            os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+            all_gpu_ids = ",".join(str(x) for x in range(torch.cuda.device_count()))
+            devices = os.getenv("CUDA_VISIBLE_DEVICES", all_gpu_ids)
+            logging.info(
+                f"LOCAL_RANK: {DIST_WRAPPER.local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]"
+            )
+            torch.cuda.set_device(self.device)
+        else:
+            self.device = torch.device("cpu")
+        if DIST_WRAPPER.world_size > 1:
+            dist.init_process_group(backend="nccl")
+        logging.info("Finished init ENV.")
+
+    def print(self, msg: str):
+        if DIST_WRAPPER.rank == 0:
+            logger.info(msg)
+
+    def run(self, input_data_list):
+        for input_data in input_data_list:
+            run_task(
+                input_data,
+                self.configs,
+                device_id=DIST_WRAPPER.local_rank,
+                seed=self.configs.seed,
+            )
+        logging.info("Eval done!")
+
+
 def main():
     # Configs
     config_dict = {
@@ -238,8 +282,12 @@ def main():
     if configs.json_path:
         logger.info("Prepare tasks from json file.")
         input_data_list = prepare_tasks_from_json(configs.json_path)
-        for input_data in input_data_list:
-            run_task(input_data, configs)
+        if DIST_WRAPPER.world_size > 1:
+            input_data_list = input_data_list[
+                DIST_WRAPPER.rank :: DIST_WRAPPER.world_size
+            ]
+            for input_data in input_data_list:
+                input_data["out_dir"] += f"_rank{DIST_WRAPPER.rank}"
 
     else:
         if not configs.file_name_list:
@@ -249,6 +297,10 @@ def main():
                 fn_list = find_files_with_ext(configs.data_dir, "pdb")
         else:
             fn_list = get_file_name_list(configs.file_name_list)
+
+        if DIST_WRAPPER.world_size > 1:
+            fn_list = fn_list[DIST_WRAPPER.rank :: DIST_WRAPPER.world_size]
+
         if configs.is_mmcif:
             logger.info("Prepare tasks from mmCIF files.")
             input_data = prepare_tasks_from_mmcif(
@@ -269,8 +321,14 @@ def main():
             )
         if len(configs.orig_seqs_json) > 0:
             input_data["orig_seqs_json"] = configs.orig_seqs_json
-        # Run task
-        run_task(input_data, configs, seed=configs.seed)
+
+        if DIST_WRAPPER.world_size > 1:
+            input_data["out_dir"] += f"_rank{DIST_WRAPPER.rank}"
+        input_data_list = [input_data]
+
+    # Run task
+    runner = EvalRunner(configs)
+    runner.run(input_data_list)
 
 
 if __name__ == "__main__":

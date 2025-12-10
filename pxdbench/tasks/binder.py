@@ -18,10 +18,11 @@ import os
 import pandas as pd
 
 from pxdbench.tasks.base import BaseTask
-from pxdbench.tasks.registry import register_task
 from pxdbench.tools.protmpnn.main_mpnn import get_gt_sequence
 from pxdbench.tools.protmpnn.mpnn_predictor import MPNNPredictor
 from pxdbench.utils import save_eval_results
+
+from .registry import register_task
 
 
 @register_task("binder")
@@ -48,15 +49,21 @@ class BinderTask(BaseTask):
         self.pdb_name_to_binder_seq_list = input_data.get(
             "pdb_name_to_binder_seq_list", None
         )
-        self.orig_seqs_json = input_data.get("orig_seqs_json", None)
+        if input_data.get("orig_seqs_json", None) is not None:
+            with open(input_data["orig_seqs_json"], "r") as f:
+                self.orig_seqs = json.load(f)
+        elif input_data.get("orig_seqs", None) is not None:
+            self.orig_seqs = input_data["orig_seqs"]
+        else:
+            self.orig_seqs = None
 
         # Default values
         self.use_binder_seq_list = cfg.get("use_binder_seq_list", False)
         self.eval_diversity = cfg.get("eval_diversity", False)
         self.eval_binder_monomer = cfg.get("eval_binder_monomer", True)
         self.eval_complex = cfg.get("eval_complex", True)
-        self.eval_protenix = cfg.get("eval_protenix", True)
-        self.eval_protenix_large = cfg.get("eval_protenix_large", True)
+        self.eval_protenix_mini = cfg.get("eval_protenix_mini", True)
+        self.eval_protenix = cfg.get("eval_protenix", False)
 
         # Check values
         assert (
@@ -135,17 +142,11 @@ class BinderTask(BaseTask):
         if self.eval_binder_monomer:
             self.af2_monomer_predict(results, af2_pred_path)
 
-        if self.orig_seqs_json is not None:
-            with open(self.orig_seqs_json, "r") as f:
-                orig_seqs = json.load(f)
-        else:
-            orig_seqs = None
+        if self.eval_protenix_mini:
+            self.protenix_predict(results, orig_seqs=self.orig_seqs)
 
         if self.eval_protenix:
-            self.protenix_predict(results, orig_seqs=orig_seqs)
-
-        if self.eval_protenix_large:
-            self.protenix_predict(results, orig_seqs=orig_seqs, is_large=True)
+            self.protenix_predict(results, orig_seqs=self.orig_seqs, is_large=True)
 
         self.cal_secondary(results, binder_chain)
         div = self.cal_diversity()

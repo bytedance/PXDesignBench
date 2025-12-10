@@ -27,19 +27,21 @@ from os.path import exists as opexists
 from typing import Any, Dict, FrozenSet, Iterable, List, Set, Tuple, Union
 
 import torch
-from ml_collections.config_dict import ConfigDict
-from protenix.config import parse_configs
-from protenix.web_service.dependency_url import URL
 
+# protenix configs
 from configs.configs_base import configs as configs_base
 from configs.configs_data import data_configs
 from configs.configs_inference import inference_configs
 from configs.configs_model_type import model_configs
+from ml_collections.config_dict import ConfigDict
 
 logger = logging.getLogger(__name__)
 
 
 def download_infercence_cache(configs: Any) -> None:
+
+    from protenix.web_service.dependency_url import URL
+
     def progress_callback(block_num, block_size, total_size):
         downloaded = block_num * block_size
         percent = min(100, downloaded * 100 / total_size)
@@ -73,7 +75,7 @@ def download_infercence_cache(configs: Any) -> None:
         "ccd_components_rdkit_mol_file",
         "pdb_cluster_file",
     ):
-        cur_cache_fpath = configs["data"][cache_name]
+        cur_cache_fpath = configs["data"].get(cache_name, data_configs[cache_name])
         if not opexists(cur_cache_fpath):
             os.makedirs(os.path.dirname(cur_cache_fpath), exist_ok=True)
             tos_url = URL[cache_name]
@@ -132,13 +134,14 @@ def download_infercence_cache(configs: Any) -> None:
 
 
 def get_configs(model_name):
+    from protenix.config import parse_configs
+
     configs = {**configs_base, **{"data": data_configs}, **inference_configs}
     configs = parse_configs(
         configs=configs,
         fill_required_with_null=True,
     )
     model_specfics_configs = ConfigDict(model_configs[model_name])
-    configs.model_name
     # update model specific configs
     configs.update(model_specfics_configs)
     return configs
@@ -154,65 +157,66 @@ def _get_entity_key(seq_entry: dict) -> str:
     return next(iter(seq_entry.keys()))
 
 
-def _get_entity_dict(seq_entry: dict) -> dict:
-    """Return the inner entity dict (e.g., seq_entry['proteinChain'])."""
-    return seq_entry[_get_entity_key(seq_entry)]
+def _get_entity(x: dict[str, Any]) -> dict[str, Any]:
+    """Return the inner dict, e.g. x['proteinChain']."""
+    return x[_get_entity_key(x)]
 
 
-def _split_seq_entry_by_asym(
-    seq_entry: dict, subset_asym_groups: Iterable[Iterable[str]]
-) -> List[dict]:
+def _split_by_asym(seq_entry: dict, subsets: Iterable[Iterable[str]]) -> List[dict]:
     """
-    Split a seq_entry into multiple entries based on provided asym subsets.
-    - Each subset becomes a new entry with label_asym_id = that subset and count = len(subset).
-    - If the union of subsets doesn't cover all original asym IDs, add a remainder entry.
+    split seq_entry by subsets
     """
     entity_key = _get_entity_key(seq_entry)
-    entity = _get_entity_dict(seq_entry)
+    ent = _get_entity(seq_entry)
+    all_asym = set(ent["label_asym_id"])
 
-    if "label_asym_id" not in entity or not isinstance(entity["label_asym_id"], list):
-        raise ValueError("Entity must contain a 'label_asym_id' list.")
-
-    orig_asym_list = entity["label_asym_id"]
-    if len(set(orig_asym_list)) != len(orig_asym_list):
-        raise ValueError("Original 'label_asym_id' contains duplicates.")
-    orig_asym_set: Set[str] = set(orig_asym_list)
-
-    # Normalize and validate subsets
-    normalized_groups: List[Set[str]] = []
     seen: Set[str] = set()
-    for group in subset_asym_groups:
-        gset = set(group)
+    groups: List[Set[str]] = []
+    for g in subsets:
+        gset = set(g)
         if not gset:
             continue
-        if not gset.issubset(orig_asym_set):
-            raise ValueError(
-                f"Subset {gset} is not a subset of original asym IDs {orig_asym_set}."
-            )
+        if not gset.issubset(all_asym):
+            raise ValueError(f"Subset {gset} is not subset of {all_asym}")
         if seen & gset:
-            raise ValueError(f"Subset {gset} overlaps with previous subsets {seen}.")
+            raise ValueError(f"Overlapping subsets: {gset} with {seen}")
         seen |= gset
-        normalized_groups.append(gset)
+        groups.append(gset)
 
-    results: List[dict] = []
-    # Create entries for each provided subset
-    for gset in normalized_groups:
-        new_entry = deepcopy(seq_entry)
-        new_entity = new_entry[entity_key]
-        new_entity["label_asym_id"] = sorted(gset)
-        new_entity["count"] = len(gset)
-        results.append(new_entry)
+    out: List[dict] = []
+    for gset in groups:
+        e = deepcopy(seq_entry)
+        ee = e[entity_key]
+        ee["label_asym_id"] = sorted(gset)
+        ee["count"] = len(gset)
+        out.append(e)
 
-    # Add remainder if any asym IDs are uncovered
-    remaining = orig_asym_set - seen
-    if remaining:
-        remainder_entry = deepcopy(seq_entry)
-        remainder_entity = remainder_entry[entity_key]
-        remainder_entity["label_asym_id"] = sorted(remaining)
-        remainder_entity["count"] = len(remaining)
-        results.append(remainder_entry)
+    remain = all_asym - seen
+    if remain:
+        e = deepcopy(seq_entry)
+        ee = e[entity_key]
+        ee["label_asym_id"] = sorted(remain)
+        ee["count"] = len(remain)
+        out.append(e)
 
-    return results
+    return out
+
+
+def _pick_condition(orig_seqs: List[dict]) -> Tuple[List[dict], dict]:
+    """according to sequence_type; otherwise, by default the first n-1 chains are condition"""
+    is_cond = lambda e: _get_entity(e).get("sequence_type") == "condition"
+    conds = [x for x in orig_seqs if is_cond(x)]
+    if not conds:
+        conds = orig_seqs[:-1]
+    return conds
+
+
+def _copy_fields_from_origin(dst_entry: dict, origin_entry: dict, fields: list[str]):
+    de = _get_entity(dst_entry)
+    oe = _get_entity(origin_entry)
+    for k in fields:
+        if k in oe:
+            de[k] = deepcopy(oe[k])
 
 
 def _build_asym_index(sequences: List[dict], trim=False) -> Dict[FrozenSet[str], dict]:
@@ -227,7 +231,7 @@ def _build_asym_index(sequences: List[dict], trim=False) -> Dict[FrozenSet[str],
     used: Set[str] = set()
 
     for seq_entry in sequences:
-        entity = _get_entity_dict(seq_entry)
+        entity = _get_entity(seq_entry)
         if "label_asym_id" not in entity or not isinstance(
             entity["label_asym_id"], list
         ):
@@ -252,7 +256,27 @@ def _build_asym_index(sequences: List[dict], trim=False) -> Dict[FrozenSet[str],
     return idx
 
 
-def patch_with_orig_seqs(sample_list: List[dict], orig_seqs: list) -> List[dict]:
+def expand_sequences(data: dict) -> dict:
+    expanded_sequences = []
+    for item in data.get("sequences", []):
+        entity_type, seq_info = next(iter(item.items()))
+        count = seq_info.get("count", 1)
+        for _ in range(count):
+            new_seq = deepcopy(seq_info)
+            new_seq["count"] = 1
+            expanded_sequences.append({entity_type: new_seq})
+    new_data = data.copy()
+    new_data["sequences"] = expanded_sequences
+    return new_data
+
+
+def patch_with_orig_seqs(
+    sample_list: List[dict],
+    orig_seqs: list,
+    trim=False,
+    use_template=False,
+    fields=None,
+) -> List[dict]:
     """
     For each item in sample_list:
       1) Build an index of current sequences grouped by their asym sets.
@@ -265,59 +289,86 @@ def patch_with_orig_seqs(sample_list: List[dict], orig_seqs: list) -> List[dict]
 
     Returns a deep-copied transformed list.
     """
-    FIELDS_TO_COPY = ["sequence", "use_msa", "msa", "crop"]
+    if fields is None:
+        fields = ["sequence", "use_msa", "msa", "crop", "modifications"]
     out = deepcopy(sample_list)
 
     # Build original index once (applies to each item)
-    orig_idx = _build_asym_index(orig_seqs, trim=True)
-    orig_sets: List[FrozenSet[str]] = list(orig_idx.keys())
+    orig_idx = _build_asym_index(orig_seqs, trim=trim)
+    orig_sets = list(orig_idx.keys())
+
+    if use_template:
+        # Split condition vs. binder
+        cond_items = _pick_condition(orig_seqs)
 
     for i, item in enumerate(out):
         if "sequences" not in item or not isinstance(item["sequences"], list):
             raise ValueError(f"Item #{i} missing a valid 'sequences' list.")
 
-        cur_idx = _build_asym_index(item["sequences"])
+        if not use_template:
+            cur_idx = _build_asym_index(item["sequences"], trim=trim)
+            # Map: current_asym_set -> list of original_asym_sets that are subsets of that current set
+            container_map: Dict[FrozenSet[str], List[FrozenSet[str]]] = {
+                c: [] for c in cur_idx
+            }
+            for oset in orig_sets:
+                container = next((c for c in cur_idx if oset.issubset(c)), None)
+                if container is None:
+                    raise ValueError(f"Item #{i}: no container for {sorted(oset)}")
+                container_map[container].append(oset)
 
-        # Map: current_asym_set -> list of original_asym_sets that are subsets of that current set
-        matched: Dict[FrozenSet[str], List[FrozenSet[str]]] = {}
-        for oset in orig_sets:
-            container = None
-            for cset in cur_idx.keys():
-                if oset.issubset(cset):
-                    container = cset
-                    break
-            if container is None:
-                raise ValueError(
-                    f"Item #{i}: missing container for original subset {sorted(oset)}."
-                )
-            matched.setdefault(container, []).append(oset)
+            new_seqs: List[dict] = []
+            for cset, cur_entry in cur_idx.items():
+                subsets = [list(s) for s in container_map.get(cset, [])]
+                if subsets:
+                    for e in _split_by_asym(cur_entry, subsets):
+                        aset = frozenset(_get_entity(e)["label_asym_id"])
+                        if aset in orig_idx:
+                            _copy_fields_from_origin(e, orig_idx[aset], fields)
+                        new_seqs.append(e)
+                else:
+                    new_seqs.append(cur_entry)
+            item["sequences"] = new_seqs
+        else:
+            # Build 'condition'
+            chain_ids = []
+            crop_dict = {}
+            msa_map = {}
+            structure_file = None
 
-        new_sequences: List[dict] = []
+            for cond_item in cond_items:
+                ent = _get_entity(cond_item)
+                cid = ent["json_chain_id"]
+                chain_ids.append(cid)
 
-        for cset, cur_entry in cur_idx.items():
-            if cset in matched:
-                # Split current entry by matched subsets (may produce a remainder)
-                subset_groups = [list(s) for s in matched[cset]]
-                split_entries = _split_seq_entry_by_asym(cur_entry, subset_groups)
+                # structure_file from 'path' (use the first one if multiple)
+                if structure_file is None:
+                    structure_file = ent["path"]
 
-                for split_entry in split_entries:
-                    entity_key = _get_entity_key(split_entry)
-                    entity = split_entry[entity_key]
-                    saset = frozenset(entity["label_asym_id"])
+                # crop (optional)
+                if "crop" in ent and ent["crop"]:
+                    crop_dict.update({cid: ent["crop"]})
 
-                    # Copy fields only if the split matches an original subset
-                    if saset in orig_idx:
-                        orig_entity = _get_entity_dict(orig_idx[saset])
-                        for k in FIELDS_TO_COPY:
-                            if k in orig_entity:
-                                entity[k] = deepcopy(orig_entity[k])
+                # msa (optional)
+                if "msa" in ent and isinstance(ent["msa"], dict):
+                    msa_map[cid] = ent["msa"]
 
-                    new_sequences.append(split_entry)
-            else:
-                # No matching subsets -> keep as-is
-                new_sequences.append(cur_entry)
+            condition_obj = {
+                "structure_file": structure_file,
+                "filter": {
+                    "chain_id": chain_ids,
+                    "crop": [crop_dict] if crop_dict else [],
+                },
+            }
+            if msa_map:
+                condition_obj["msa"] = msa_map
 
-        item["sequences"] = new_sequences
+            # Build 'sequences'
+            binder_obj = item["sequences"][-1]
+
+            # Assemble new json_dict
+            item["condition"] = condition_obj
+            item["sequences"] = [binder_obj]
 
     return out
 
@@ -408,6 +459,14 @@ def populate_msa_with_cache(
                     }
         except Exception:
             cache = {}
+
+    # Update cache
+    for i, j, entity in _iter_entities(data):
+        msa = entity.get("msa", {})
+        precomp = msa.get("precomputed_msa_dir") if isinstance(msa, dict) else None
+        if precomp:
+            seq = entity.get("sequence")
+            cache.update({_sanitize_sequence(seq): precomp})
 
     # Collect needed sequences
     pending: Set[str] = set()

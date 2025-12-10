@@ -208,7 +208,7 @@ def get_gt_sequence(pdb_dir: str, pdb_names: list[str], binder_chain="B"):
         list[dict]: List of design results with keys 'name' (PDB name), 'seq_idx' (sequence index),
                     and 'sequence' (ground truth amino acid sequence).
     """
-    
+
     final_result = []
     for name in pdb_names:
         sequence = []

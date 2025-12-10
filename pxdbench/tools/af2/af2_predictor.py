@@ -15,6 +15,7 @@
 import os
 from typing import Dict, List
 
+from pxdbench.globals import AF2_PARAMS_PATH, _require
 from pxdbench.tools.base import BasePredictor
 
 
@@ -23,11 +24,14 @@ class AF2ComplexPredictor(BasePredictor):
         super().__init__(*args, **kwargs)
         dir_name = os.path.dirname(__file__)
         self.script_path = os.path.join(dir_name, "main_af2_complex.py")
+        _require(os.path.join(AF2_PARAMS_PATH, "params_model_1.npz"))
+        _require(os.path.join(AF2_PARAMS_PATH, "params_model_1_ptm.npz"))
 
     def predict(
         self,
         input_dir: str,
         save_dir: str,
+        design_pdb_dir: str,
         data_list: List[Dict],
         cond_chain: str,
         binder_chain: str,
@@ -35,6 +39,7 @@ class AF2ComplexPredictor(BasePredictor):
         input_data = {
             "input_dir": input_dir,
             "save_dir": save_dir,
+            "design_pdb_dir": design_pdb_dir,
             "data_list": data_list,
             "cond_chain": cond_chain,
             "binder_chain": binder_chain,
@@ -52,6 +57,8 @@ class AF2MonomerPredictor(BasePredictor):
         super().__init__(*args, **kwargs)
         dir_name = os.path.dirname(__file__)
         self.script_path = os.path.join(dir_name, "main_af2_monomer.py")
+        _require(os.path.join(AF2_PARAMS_PATH, "params_model_1.npz"))
+        _require(os.path.join(AF2_PARAMS_PATH, "params_model_1_ptm.npz"))
 
     def predict(
         self,

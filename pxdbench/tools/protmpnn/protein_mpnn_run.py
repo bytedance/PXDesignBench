@@ -52,7 +52,7 @@ def main(args):
     else:
         seed = int(np.random.randint(0, high=999, size=1, dtype=int)[0])
 
-    seed_everything(seed, deterministic=True)
+    seed_everything(seed, deterministic=False)
 
     hidden_dim = 128
     num_layers = 3
