@@ -20,34 +20,89 @@ The codebase is organized into three main components:
 | **Binder** | ProteinMPNN             | 🔹 AlphaFold2 <br> 🔹 Protenix         |
 
 ---
+<a name="install"></a>
+## 📦 Installation
 
-## 📦 Dependencies
+PXDesignBench supports two installation methods:
 
-1. **Install Protenix** (version >= 0.5.3) – a high-accuracy structure prediction tool:  
+- ✅ **One-click installation script (Recommended)**
+- 🐳 **Docker-based installation**
+
+---
+
+<a name="one-click-install"></a>
+### ✅ One-Click Installation Script (Recommended)
+
+We provide an installation script ``install.sh`` that sets up an  environment and installs all dependencies.
+
+#### What the installer will do
+
+1. Create a dedicated conda / mamba / micromamba environment  
+2. Install **PyTorch** matching your specified CUDA version  
+3. Install **Protenix**
+4. Install **PXDesignBench**
+5. Run **basic import sanity checks**  
+
+#### Supported options
+
 ```bash
-pip install git+https://github.com/bytedance/Protenix.git@dev_design
+--env <name>           Environment name (default: pxdbench)
+--pkg_manager <tool>   conda | mamba | micromamba (default: conda)
+--cuda-version <ver>   CUDA version string, e.g. 12.1, 12.2, 12.4
+                        Required. Must be >= 12.1.
 ```
-Note: You need to install Protenix from the **`dev_design`** branch. If you encounter any issues during installation, please refer to the official [Protenix Installation Guide](https://github.com/bytedance/Protenix/tree/main?tab=readme-ov-file#-installation) for detailed instructions.
 
-2. **Install additional dependencies** for ProteinMPNN, AlphaFold2, and ESMFold:
+Example:
+
 ```bash
-pip install git+https://github.com/sokrypton/ColabDesign.git --no-deps  # tested with colabdesign-1.1.3
-pip install "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-pip install transformers==4.51.3
+bash install.sh --env pxdbench --pkg_manager conda --cuda-version 12.1
 ```
 
-3. **Download model weights:**
-- **ESMFold:** [Download](https://huggingface.co/facebook/esmfold_v1/tree/main)  
-- **AlphaFold2:** [Download](https://github.com/google-deepmind/alphafold?tab=readme-ov-file#model-parameters)  
-- **ProteinMPNN:**
-  - [CA model weights](https://github.com/dauparas/ProteinMPNN/tree/main/ca_model_weights)  
-  - [Soluble model weights](https://github.com/dauparas/ProteinMPNN/tree/main/soluble_model_weights)  
-  - [Vanilla model weights](https://github.com/dauparas/ProteinMPNN/tree/main/vanilla_model_weights)
+---
 
-The default weight paths are defined in **`pxdbench/globals.py`**.  
-After downloading, update the variables in `globals.py` to reflect your local directory structure.
+<a name="install-docker"></a>
+### 🐳 Docker-Based Installation
 
-### 📁 Model Weight Organization
+#### Step 1: Build the Docker Image
+
+```bash
+docker build -t pxdbench -f Dockerfile .
+```
+
+#### Step 2: Start the Container
+
+```bash
+docker run -it --gpus all pxdbench bash
+```
+
+#### Step 3: Install PXDesignBench in the Container
+
+Inside the container:
+
+```bash
+git clone https://github.com/bytedance/PXDesignBench.git
+cd PXDesignBench
+pip install -e .
+```
+
+
+## 📥 Download Required Model Weights (**Required**)
+
+PXDesignBench relies on several external pretrained models (e.g., AF2, ProteinMPNN, etc.) for evaluation.  
+These **weights are not bundled with the Python package and must be downloaded manually**.
+
+After installing PXDesignBench, run:
+
+```bash
+bash download_tool_weights.sh
+```
+
+This script will automatically download and organize all required pretrained weights for:
+
+- AlphaFold2
+- ESMFold
+- ProteinMPNN
+
 Model weights for external tools are expected to be organized in a directory as follows:
 ```
 ├── af2

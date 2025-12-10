@@ -17,6 +17,7 @@
 from protenix.config.extend_types import ListValue
 
 eval_configs = {
+    "save_dir": "",
     "monomer": {
         "eval_diversity": False,
         "num_seqs": 8,
@@ -32,8 +33,8 @@ eval_configs = {
         "eval_diversity": False,
         "eval_binder_monomer": True,
         "eval_complex": True,
-        "eval_protenix": True,
-        "eval_protenix_large": False,
+        "eval_protenix_mini": True,
+        "eval_protenix": False,
         "num_seqs": 1,
         "use_gt_seq": False,
         "use_binder_seq_list": False,
@@ -53,8 +54,9 @@ eval_configs = {
                 "use_binder_template": True,
                 "is_cyclic": False,
             },
-            "ptx": {
+            "ptx_mini": {
                 "model_name": "protenix_mini_default_v0.5.0",
+                "load_checkpoint_dir": "",
                 "dtype": "bf16",
                 "use_deepspeed_evo_attention": True,
                 "N_cycle": 4,
@@ -62,9 +64,12 @@ eval_configs = {
                 "N_step": 2,
                 "step_scale_eta": 1.0,
                 "gamma0": 0,
+                "use_template": False,
+                "use_msa": True,
             },
-            "ptx_large": {
+            "ptx": {
                 "model_name": "protenix_base_default_v0.5.0",
+                "load_checkpoint_dir": "",
                 "dtype": "bf16",
                 "use_deepspeed_evo_attention": True,
                 "N_cycle": 4,
@@ -72,10 +77,12 @@ eval_configs = {
                 "N_step": 2,
                 "step_scale_eta": 1.0,
                 "gamma0": 0,
+                "use_template": False,
+                "use_msa": True,
             },
         },
         "filters": {
-            "bindcraft": {
+            "af2_easy": {
                 "pLDDT": (">", 0.8),
                 "i_pTM": (">", 0.5),
                 "i_pAE": ("<", 0.35),
@@ -87,14 +94,19 @@ eval_configs = {
                 "af2_binder_pred_design_rmsd": ("<", 1.5),
             },
             "ptx_mini": {
+                "ptx_mini_iptm_binder": (">", 0.85),
+                "ptx_mini_ptm_binder": (">", 0.88),
+                "ptx_mini_pred_design_rmsd": ("<", 2.5),
+            },
+            "ptx": {
                 "ptx_iptm_binder": (">", 0.85),
                 "ptx_ptm_binder": (">", 0.88),
                 "ptx_pred_design_rmsd": ("<", 2.5),
             },
-            "ptx_large": {
-                "ptx_large_iptm_binder": (">", 0.85),
-                "ptx_large_ptm_binder": (">", 0.88),
-                "ptx_large_pred_design_rmsd": ("<", 2.5),
+            "ptx_basic": {
+                "ptx_iptm_binder": (">", 0.8),
+                "ptx_ptm_binder": (">", 0.8),
+                "ptx_pred_design_rmsd": ("<", 2.5),
             },
         },
     },

@@ -16,7 +16,7 @@
 References:
 - TM-align:
   Zhang, Y., & Skolnick, J. (2005). TM-align: A protein structure alignment algorithm based on TM-score.
-  Nucleic Acids Research, 33(7), 2302–2309. [https://zhanggroup.org/TM-align/]
+  Nucleic Acids Research, 33(7), 2302-2309. [https://zhanggroup.org/TM-align/]
 """
 
 import os

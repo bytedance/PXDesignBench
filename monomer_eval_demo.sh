@@ -17,7 +17,30 @@ use_deepspeed_evo_attention=false
 
 export LAYERNORM_TYPE=fast_layernorm
 export USE_DEEPSPEED_EVO_ATTENTION=${use_deepspeed_evo_attention}
+export TOOL_WEIGHTS_ROOT="$(pwd)/tool_weights"
 
+# ===============================
+# Tool Weights Sanity Check
+# ===============================
+ROOT="${TOOL_WEIGHTS_ROOT}"
+declare -a REQUIRED_FILES=(
+  # ---- ESMFold ----
+  "$ROOT/esmfold/pytorch_model.bin"
+)
+echo "Checking tool weights in: $ROOT"
+for f in "${REQUIRED_FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo -e "\nMissing required tool weight:"
+    echo "   $f"
+    echo -e "\nPlease run:"
+    echo "   bash download_tool_weights.sh"
+    exit 1
+  fi
+done
+
+# ===============================
+# Main
+# ===============================
 input_dir="./examples/monomer"
 dump_dir="./output/monomer"
 

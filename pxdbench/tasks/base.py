@@ -16,13 +16,16 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from functools import cached_property
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from pxdbench.metrics import diversity, secondary
 from pxdbench.tools.af2.af2_predictor import AF2ComplexPredictor, AF2MonomerPredictor
-from pxdbench.tools.ptx import ptx
+from pxdbench.tools.ptx.interface import ProtenixAPI
+from pxdbench.tools.registry import get_backend
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,7 @@ logger = logging.getLogger(__name__)
 class BaseTask(ABC):
     task_type: str
     task_name: str
+    backend_spec: Optional[str] = None
 
     def __init__(self, input_data, cfg, device_id: int, seed: int):
         self.cfg = cfg
@@ -46,6 +50,8 @@ class BaseTask(ABC):
         # Default values
         self.num_seqs = cfg.get("num_seqs", 4)
         self.use_gt_seq = cfg.get("use_gt_seq", False)
+        self._ptx_mini_inst: Optional[ProtenixAPI] = None
+        self._ptx_inst: Optional[ProtenixAPI] = None
 
         # Check pdb_paths
         self.process_pdb_paths()
@@ -55,6 +61,26 @@ class BaseTask(ABC):
             return f"cuda:{self.device_id}"
         else:
             return "cpu"
+
+    @cached_property
+    def ptx_factory(self):
+        return get_backend(self.backend_spec)
+
+    def get_ptx(self, is_large: bool = False) -> ProtenixAPI:
+        if is_large:
+            if self._ptx_inst is None:
+                self._ptx_inst = self.ptx_factory(
+                    cfg=self.cfg.tools.ptx,
+                    device=self.get_device(),
+                )
+            return self._ptx_inst
+
+        if self._ptx_mini_inst is None:
+            self._ptx_mini_inst = self.ptx_factory(
+                cfg=self.cfg.tools.ptx_mini,
+                device=self.get_device(),
+            )
+        return self._ptx_mini_inst
 
     @abstractmethod
     def design_sequence(self):
@@ -243,6 +269,7 @@ class BaseTask(ABC):
         predictor.predict(
             input_dir=self.pdb_dir,
             save_dir=save_dir,
+            design_pdb_dir=self.pdb_dir,
             data_list=data_list,
             cond_chain=",".join(self.cond_chains),
             binder_chain=",".join(self.binder_chains),
@@ -279,13 +306,12 @@ class BaseTask(ABC):
             data_list (list): List of data samples.
             is_large (bool, optional): Whether to use the large model. Defaults to False.
         """
-        if is_large:
-            ptx_cfg = self.cfg.tools.ptx_large
-            dump_dir = os.path.join(self.out_dir, "ptx_pred_large")
-        else:
-            ptx_cfg = self.cfg.tools.ptx
-            dump_dir = os.path.join(self.out_dir, "ptx_pred")
-        ptx_filter = ptx.ProtenixFilter(cfg=ptx_cfg, device=self.get_device())
+        ptx_cfg = self.cfg.tools.ptx if is_large else self.cfg.tools.ptx_mini
+        ptx_filter = self.get_ptx(is_large)
+        dump_dir = os.path.join(
+            self.out_dir, "ptx_pred" if is_large else "ptx_mini_pred"
+        )
+
         # HARDCODE binder chain idx
         binder_chain_idx = 0 if self.binder_chains[0] == "A" else None
         json_path = ptx_filter.prepare_json(
@@ -293,7 +319,8 @@ class BaseTask(ABC):
             data_list,
             dump_dir=dump_dir,
             binder_chain_idx=binder_chain_idx,
-            orig_seqs=orig_seqs
+            orig_seqs=orig_seqs,
+            use_template=ptx_cfg.get("use_template", False),
         )
         pred_pdb_paths = ptx_filter.predict(
             input_json_path=json_path,
@@ -307,6 +334,7 @@ class BaseTask(ABC):
             gamma0=ptx_cfg.gamma0,
             N_cycle=ptx_cfg.N_cycle,
             binder_chain_idx=binder_chain_idx,
-            suffix="_large" if is_large else "",
+            use_msa=ptx_cfg.get("use_msa", True),
+            suffix="_mini" if not is_large else "",
         )
         return pred_pdb_paths

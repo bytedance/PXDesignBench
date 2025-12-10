@@ -16,7 +16,20 @@ import os
 
 
 def get_ckpt_path(version: str, file: str = ""):
-    return f"/protenix/dataset/DesignCkpts:{version}/{file}"
+    if os.environ.get("TOOL_WEIGHTS_ROOT"):
+        ckpt_dir = os.path.join(os.environ.get("TOOL_WEIGHTS_ROOT"), version)
+    else:
+        ckpt_dir = f"/protenix/dataset/DesignCkpts:{version}"
+    return os.path.join(ckpt_dir, file)
+
+
+def _require(path: str):
+    if not os.path.isfile(path):
+        raise FileNotFoundError(
+            f"\n Missing tool weight:\n  {path}\n"
+            " Please run:\n"
+            "  bash download_tool_weights.sh\n"
+        )
 
 
 TMALIGN_PATH = os.path.join(os.path.dirname(__file__), "metrics", "TMalign")

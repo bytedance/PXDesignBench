@@ -161,10 +161,9 @@ def binder_only_prediction(
                 save_dir, f"{design_complex_name}_model{model_id + 1}.pdb"
             )
             if os.path.isfile(pred_complex_pdb):
-                # af2 binder chain is "B"
                 bound_unbound_RMSD = round(
                     Binder_align_and_calculate_rmsd(
-                        pred_binder_pdb, pred_complex_pdb, "B"
+                        pred_binder_pdb, pred_complex_pdb, binder_chain
                     ),
                     2,
                 )

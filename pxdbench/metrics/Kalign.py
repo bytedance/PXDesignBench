@@ -94,6 +94,54 @@ def calculate_rmsd(P, Q):
     return np.sqrt(np.sum(diff * diff) / len(P))
 
 
+def _is_standard_residue(residue):
+    hetflag = residue.id[0]  # ' '=standard, 'H_'=hetero/water/ligand
+    return hetflag == " "
+
+
+def _choose_altloc(atom_list):
+    """Pick one altloc variant for a duplicated atom (e.g., CA).
+    Preference order: highest occupancy; tie-breaker: altloc 'A' or blank.
+    """
+    if len(atom_list) == 1:
+        return atom_list[0]
+    best = max(
+        atom_list,
+        key=lambda a: (
+            a.get_occupancy() or 0.0,
+            1 if a.get_altloc() in ("A", " ") else 0,
+        ),
+    )
+    return best
+
+
+def _residue_key(chain, residue):
+    """Build a stable residue key using (chain_id, resseq, icode)."""
+    het, resseq, icode = residue.get_id()
+    return (chain.id, int(resseq), (icode or "").strip())
+
+
+def _collect_ca_coords(structure, chain_id=None):
+    """
+    return: dict[(chain_id, resseq, icode)] -> CA 3D coord
+    """
+    idx = {}
+    for model in structure:
+        for chain in model:
+            if chain_id is not None and chain.id != chain_id:
+                continue
+            for res in chain:
+                if not _is_standard_residue(res):
+                    continue
+                ca_atoms = [a for a in res if a.get_name() == "CA"]
+                if not ca_atoms:
+                    continue
+                ca = _choose_altloc(ca_atoms)
+                key = _residue_key(chain, res)
+                idx[key] = ca.get_coord().astype(np.float64)
+    return idx
+
+
 def align_and_calculate_rmsd(file1, file2):
     """
     Align two protein structures based on their CA atoms and calculate RMSD.
@@ -117,7 +165,20 @@ def align_and_calculate_rmsd(file1, file2):
         print(
             "[WARNING] The lengths of coord1 and coord2 are different. There may exist missing atoms!"
         )
-        return None
+        orig_num_atoms = len(coords1), len(coords2)
+        coords1 = _collect_ca_coords(structure1)
+        coords2 = _collect_ca_coords(structure2)
+        # Use only residues present in BOTH structures
+        common_keys = sorted(set(coords1.keys()) & set(coords2.keys()))
+        if len(common_keys) < 3:
+            print(f"[WARNING] common CA pairs < 3 (got {len(common_keys)}). ")
+            return None
+        coords1 = np.vstack([coords1[k] for k in common_keys])
+        coords2 = np.vstack([coords2[k] for k in common_keys])
+        matched_num_atoms = len(coords1), len(coords2)
+        print(
+            f"Orig num atoms: {orig_num_atoms} Matched num atoms: {matched_num_atoms}"
+        )
 
     R, C_P, C_Q = kabsch_algorithm(coords1, coords2)
 
@@ -147,6 +208,59 @@ def Binder_align_and_calculate_rmsd(file1, file2, chain_id):
 
     coords1 = get_coordinates(structure1)
     coords2 = get_coordinates(structure2, chain_id)
+    if len(coords1) != len(coords2):
+        print(
+            "[WARNING] The lengths of coord1 and coord2 are different. There may exist missing atoms!"
+        )
+        return None
+
+    R, C_P, C_Q = kabsch_algorithm(coords1, coords2)
+
+    # Apply rotation and translation
+    coords2_aligned = np.dot(coords2 - C_Q, R) + C_P
+
+    rmsd = calculate_rmsd(coords1, coords2_aligned)
+    return rmsd
+
+
+def _list_chain_ids(structure):
+    """Return chain IDs in file order (first model only)."""
+    model = next(structure.get_models())
+    return [ch.id for ch in model]
+
+
+def _coords_for_chain_ids(structure, chain_ids):
+    """Stack CA coords for the given chain IDs (skip empty chains safely)."""
+    chunks = []
+    for cid in chain_ids:
+        arr = get_coordinates(structure, chain_id=cid)
+        if arr.size:
+            chunks.append(arr)
+    if not chunks:
+        return np.empty((0, 3), dtype=float)
+    return np.vstack(chunks)
+
+
+def align_and_calculate_target_rmsd(file1, file2, n=None):
+    parser = PDB.PDBParser(QUIET=True)
+    structure1 = parser.get_structure("structure1", file1)
+    structure2 = parser.get_structure("structure2", file2)
+
+    chains1 = _list_chain_ids(structure1)
+    chains2 = _list_chain_ids(structure2)
+
+    if n is None:
+        n = len(chains1)
+    if n > len(chains2):
+        print(f"[WARNING] file2 has only {len(chains2)} chains; capping n to that.")
+        n = len(chains2)
+
+    ids1 = chains1[:n]
+    ids2 = chains2[:n]
+
+    coords1 = _coords_for_chain_ids(structure1, ids1)
+    coords2 = _coords_for_chain_ids(structure2, ids2)
+
     if len(coords1) != len(coords2):
         print(
             "[WARNING] The lengths of coord1 and coord2 are different. There may exist missing atoms!"
