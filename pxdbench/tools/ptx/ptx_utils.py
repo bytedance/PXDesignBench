@@ -357,7 +357,7 @@ def patch_with_orig_seqs(
                 "structure_file": structure_file,
                 "filter": {
                     "chain_id": chain_ids,
-                    "crop": [crop_dict] if crop_dict else [],
+                    "crop": crop_dict if crop_dict else {},
                 },
             }
             if msa_map:
