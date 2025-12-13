@@ -121,15 +121,28 @@ def _residue_key(chain, residue):
     return (chain.id, int(resseq), (icode or "").strip())
 
 
-def _collect_ca_coords(structure, chain_id=None):
+def _collect_ca_coords(structure, chain_ids=None):
     """
-    return: dict[(chain_id, resseq, icode)] -> CA 3D coord
+    Collect CA coordinates keyed by (chain_id, resseq, icode).
+
+    Returns
+    -------
+    dict[(chain_id, resseq, icode)] -> np.ndarray shape (3,), float64
+
+    Parameters
+    ----------
+    structure : Bio.PDB.Structure.Structure
+    chain_ids : Iterable[str] | None Select multiple chains.
     """
+    chain_id_set = set(chain_ids) if chain_ids is not None else None
+
     idx = {}
     for model in structure:
         for chain in model:
-            if chain_id is not None and chain.id != chain_id:
-                continue
+            if chain_id_set is not None:
+                if chain.id not in chain_id_set:
+                    continue
+
             for res in chain:
                 if not _is_standard_residue(res):
                     continue
@@ -263,9 +276,19 @@ def align_and_calculate_target_rmsd(file1, file2, n=None):
 
     if len(coords1) != len(coords2):
         print(
-            "[WARNING] The lengths of coord1 and coord2 are different. There may exist missing atoms!"
+            "[WARNING] The lengths of coord1 and coord2 are different. "
+            "Trying residue-key matching fallback."
         )
-        return None
+
+        idx1 = _collect_ca_coords(structure1, chain_ids=ids1)
+        idx2 = _collect_ca_coords(structure2, chain_ids=ids2)
+        common_keys = sorted(set(idx1.keys()) & set(idx2.keys()))
+        if len(common_keys) < 3:
+            print(f"[WARNING] common CA pairs < 3 (got {len(common_keys)}).")
+            return None
+        coords1 = np.vstack([idx1[k] for k in common_keys])
+        coords2 = np.vstack([idx2[k] for k in common_keys])
+        print(f"Matched num CA atoms after fallback: {(len(coords1), len(coords2))}")
 
     R, C_P, C_Q = kabsch_algorithm(coords1, coords2)
 

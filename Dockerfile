@@ -1,7 +1,7 @@
 FROM ai4s-cn-beijing.cr.volces.com/infra/protenix:v0.0.3
 
 # Install Protenix
-RUN pip --no-cache-dir install git+https://github.com/bytedance/Protenix.git@dev_design_update 
+RUN pip --no-cache-dir install git+https://github.com/bytedance/Protenix.git@v0.5.0+pxd
 
 # Install PXDesignBench dependencies
 RUN pip install git+https://github.com/sokrypton/ColabDesign.git --no-deps
