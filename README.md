@@ -179,22 +179,6 @@ In this case:
 PXDesignBench exposes ProteinMPNN bias inputs through the task configs. Both monomer and binder configs accept:
 
 - `bias_aa_json`: JSON file mapping amino acid letters to bias values applied at all positions.
-- `bias_matrix_json`: JSON file storing a full bias matrix with shape `(length, 21)` (alphabet `ARNDCQEGHILKMFPSTWYVX`) or `(length, 20)` (alphabet `ARNDCQEGHILKMFPSTWYV`). Values are added on top of any `bias_aa_json` values.
-
-Example (global bias applied to all positions):
-
-```json
-{"D": 1.39, "E": 1.39}
-```
-
-Example bias matrix JSON (`bias_matrix_json`) for two positions:
-
-```json
-[
-  [0.0, 0.0, 0.0, 1.39, 0.0, 0.0, 1.39, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-  [0.0, 0.0, 0.0, 1.39, 0.0, 0.0, 1.39, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-]
-```
 
 Example usage:
 
@@ -202,8 +186,17 @@ Example usage:
 python3 ./pxdbench/run.py \
   --data_dir ./examples/binder \
   --dump_dir ./output/binder \
-  --binder.tools.mpnn.bias_aa_json ./bias_aa.json \
-  --binder.tools.mpnn.bias_matrix_json ./bias_matrix.json
+  --is_mmcif true \
+  --seed 2025 \
+  --orig_seqs_json ./examples/orig_seqs_test.json \
+  --binder.num_seqs 2 \
+  --binder.tools.mpnn.temperature 0.0001 \
+  --binder.tools.af2.use_binder_template true \
+  --binder.tools.ptx_mini.dtype fp32 \
+  --binder.tools.ptx_mini.use_deepspeed_evo_attention false \
+  --binder_chains B0 \
+  --binder.use_gt_seq false \
+  --binder.tools.mpnn.bias_aa_json ./examples/hydrophilic_bias.json
 ```
 
 
