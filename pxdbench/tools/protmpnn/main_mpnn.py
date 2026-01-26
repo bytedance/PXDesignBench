@@ -74,7 +74,6 @@ def _apply_bias_inputs(mpnn_model, bias_aa_json, bias_matrix_json):
     alphabet = _resolve_bias_alphabet(num_cols)
     bias_matrix = _load_bias_matrix(bias_matrix_json, num_cols)
     if bias_map is not None:
-        bias = np.zeros((bias_store.shape[0], num_cols), dtype=np.float32)
         aa_order = {aa: idx for idx, aa in enumerate(alphabet)}
         for aa, value in bias_map.items():
             if aa not in aa_order:
@@ -82,14 +81,13 @@ def _apply_bias_inputs(mpnn_model, bias_aa_json, bias_matrix_json):
                     f"Unknown amino acid '{aa}' in bias_aa_json. "
                     f"Supported letters: {alphabet}."
                 )
-            bias[:, aa_order[aa]] = float(value)
-        mpnn_model._inputs["bias"] += bias
+            bias_store[:, aa_order[aa]] += float(value)
     if bias_matrix is not None:
         if bias_matrix.shape[0] != mpnn_model._inputs["S"].shape[1]:
             raise ValueError(
                 "bias_matrix_json length must match the number of residues."
             )
-        mpnn_model._inputs["bias"] += bias_matrix
+        bias_store += bias_matrix
 
 
 def get_pdb_basename(pdb_path: str):
