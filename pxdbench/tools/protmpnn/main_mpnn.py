@@ -82,7 +82,7 @@ def _apply_bias_inputs(mpnn_model, bias_aa_json, bias_matrix_json):
                     f"Unknown amino acid '{aa}' in bias_aa_json. "
                     f"Supported letters: {alphabet}."
                 )
-            bias[:, aa_order[aa]] += float(value)
+            bias[:, aa_order[aa]] = float(value)
         mpnn_model._inputs["bias"] += bias
     if bias_matrix is not None:
         if bias_matrix.shape[0] != mpnn_model._inputs["S"].shape[1]:
