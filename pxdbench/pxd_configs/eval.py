@@ -26,6 +26,8 @@ eval_configs = {
                 "model_type": "ca",  # [ca, bb, soluble]
                 "model_name": "v_48_020",
                 "temperature": "0.1",
+                "bias_aa_json": "",
+                "bias_matrix_json": "",
             }
         },
     },
@@ -45,6 +47,8 @@ eval_configs = {
                 "rm_aa": "C",
                 "temperature": "0.0001",
                 "fix_interface": False,  # whether fixing interface restype or not
+                "bias_aa_json": "",
+                "bias_matrix_json": "",
             },
             "af2": {
                 "use_multimer": False,
