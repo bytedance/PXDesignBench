@@ -13,13 +13,16 @@
 # limitations under the License.
 
 import os
+import pathlib
+
+TOOL_WEIGHTS_PATH = pathlib.Path(__file__).parent.resolve().parent / "tool_weights"
 
 
 def get_ckpt_path(version: str, file: str = ""):
     if os.environ.get("TOOL_WEIGHTS_ROOT"):
         ckpt_dir = os.path.join(os.environ.get("TOOL_WEIGHTS_ROOT"), version)
     else:
-        ckpt_dir = f"/protenix/dataset/DesignCkpts:{version}"
+        ckpt_dir = os.path.join(TOOL_WEIGHTS_PATH, version)
     return os.path.join(ckpt_dir, file)
 
 
