@@ -174,6 +174,29 @@ In this case:
 - If `file_name_list` is provided, only matching files will be evaluated.
 - Otherwise, all files in the directory with valid extensions will be included.
 
+### ProteinMPNN Bias Control
+
+PXDesignBench exposes ProteinMPNN bias inputs through the task configs. Both monomer and binder configs accept:
+
+- `bias_aa_json`: JSON file mapping amino acid letters to bias values applied at all positions.
+- `bias_matrix_json`: JSON file storing a full bias matrix with shape `(length, 21)` (alphabet `ARNDCQEGHILKMFPSTWYVX`) or `(length, 20)` (alphabet `ARNDCQEGHILKMFPSTWYV`).
+
+Example (global bias applied to all positions):
+
+```json
+{"D": 1.39, "E": 1.39}
+```
+
+Example usage:
+
+```bash
+python3 ./pxdbench/run.py \
+  --data_dir ./examples/binder \
+  --dump_dir ./output/binder \
+  --binder.tools.mpnn.bias_aa_json ./bias_aa.json \
+  --binder.tools.mpnn.bias_matrix_json ./bias_matrix.json
+```
+
 
 ### Binder Evaluation with Additional Metadata
 
@@ -395,4 +418,3 @@ Please do **not** create a public GitHub issue.
 ## License
 
 This project is licensed under the [Apache 2.0 License](./LICENSE). It is free for both academic research and commercial use.
-

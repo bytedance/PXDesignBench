@@ -143,6 +143,9 @@ class VanillaMPNNPredictor:
             "--path_to_model_weights",
             path_to_model_weights,
         ]
+        bias_aa_json = self.cfg.get("bias_aa_json", "")
+        if bias_aa_json:
+            cmd.extend(["--bias_AA_jsonl", bias_aa_json])
         if model_type == "ca":
             cmd.extend(["--ca_only"])
         elif model_type == "soluble":
