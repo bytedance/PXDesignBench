@@ -120,7 +120,7 @@ class VanillaMPNNPredictor:
 
         model_type = self.cfg["model_type"]
         model_name = self.cfg["model_name"]
-        assert model_type in ["ca", "bb", "soluable"]
+        assert model_type in ["ca", "bb", "soluble"]
         path_to_model_weights = MPNN_CKPT_PATH[model_type]
 
         output_dir = os.path.dirname(jsonl_path)

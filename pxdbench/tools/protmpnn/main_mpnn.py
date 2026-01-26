@@ -83,9 +83,11 @@ def _apply_bias_inputs(mpnn_model, bias_aa_json, bias_matrix_json):
                 )
             bias_store[:, aa_order[aa]] += float(value)
     if bias_matrix is not None:
-        if bias_matrix.shape[0] != mpnn_model._inputs["S"].shape[1]:
+        expected_len = mpnn_model._inputs["S"].shape[1]
+        if bias_matrix.shape[0] != expected_len:
             raise ValueError(
-                "bias_matrix_json length must match the number of residues."
+                "bias_matrix_json length must match the number of residues "
+                f"(expected {expected_len}, got {bias_matrix.shape[0]})."
             )
         bias_store += bias_matrix
 
