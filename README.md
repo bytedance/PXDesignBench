@@ -187,6 +187,15 @@ Example (global bias applied to all positions):
 {"D": 1.39, "E": 1.39}
 ```
 
+Example bias matrix JSON (`bias_matrix_json`) for two positions:
+
+```json
+[
+  [0.0, 0.0, 1.39, 1.39, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  [0.0, 0.0, 1.39, 1.39, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+]
+```
+
 Example usage:
 
 ```bash
