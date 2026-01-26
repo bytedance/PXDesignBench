@@ -179,7 +179,7 @@ In this case:
 PXDesignBench exposes ProteinMPNN bias inputs through the task configs. Both monomer and binder configs accept:
 
 - `bias_aa_json`: JSON file mapping amino acid letters to bias values applied at all positions.
-- `bias_matrix_json`: JSON file storing a full bias matrix with shape `(length, 21)` (alphabet `ARNDCQEGHILKMFPSTWYVX`) or `(length, 20)` (alphabet `ARNDCQEGHILKMFPSTWYV`). Values are added on top of any `bias_aa_json` values.
+- `bias_matrix_json`: JSON file storing a full bias matrix with shape `(length, 21)` (alphabet `ACDEFGHIKLMNPQRSTVWYX`) or `(length, 20)` (alphabet `ARNDCQEGHILKMFPSTWYV`). Values are added on top of any `bias_aa_json` values.
 
 Example (global bias applied to all positions):
 
