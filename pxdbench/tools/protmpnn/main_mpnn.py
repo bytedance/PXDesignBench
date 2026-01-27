@@ -16,11 +16,80 @@ import argparse
 import json
 import os
 
+import numpy as np
 from colabdesign.mpnn import clear_mem, mk_mpnn_model
 from ml_collections import ConfigDict
 
 from pxdbench.tools.biopython_utils import get_interface_residue_id, hotspot_residues
 from pxdbench.utils import extract_chain_sequence, seed_everything
+
+AA_ALPHABET = "ARNDCQEGHILKMFPSTWYV"
+
+
+def _load_bias_aa_map(bias_aa_json):
+    if not bias_aa_json:
+        return None
+    with open(bias_aa_json, "r") as f:
+        bias_map = json.load(f)
+    if not isinstance(bias_map, dict):
+        raise ValueError("bias_aa_json must contain a JSON object mapping AAs to values.")
+    return bias_map
+
+
+def _resolve_bias_alphabet(num_cols):
+    if num_cols == len(AA_ALPHABET):
+        return AA_ALPHABET
+    if num_cols == len(AA_ALPHABET) + 1:
+        return AA_ALPHABET + "X"
+    raise ValueError(
+        f"Unsupported bias width {num_cols}; expected {len(AA_ALPHABET)} or "
+        f"{len(AA_ALPHABET) + 1}."
+    )
+
+
+def _normalize_bias_matrix(bias_matrix, num_cols):
+    if isinstance(bias_matrix, list):
+        bias_matrix = np.array(bias_matrix, dtype=np.float32)
+    if not isinstance(bias_matrix, np.ndarray):
+        raise ValueError("bias_matrix_json must contain a JSON array.")
+    if bias_matrix.ndim != 2 or bias_matrix.shape[1] != num_cols:
+        raise ValueError(
+            f"bias_matrix_json must be a (length, {num_cols}) matrix."
+        )
+    return bias_matrix
+
+
+def _load_bias_matrix(bias_matrix_json, num_cols):
+    if not bias_matrix_json:
+        return None
+    with open(bias_matrix_json, "r") as f:
+        bias_matrix = json.load(f)
+    return _normalize_bias_matrix(bias_matrix, num_cols)
+
+
+def _apply_bias_inputs(mpnn_model, bias_aa_json, bias_matrix_json):
+    bias_map = _load_bias_aa_map(bias_aa_json)
+    bias_store = mpnn_model._inputs["bias"]
+    num_cols = bias_store.shape[1]
+    alphabet = _resolve_bias_alphabet(num_cols)
+    bias_matrix = _load_bias_matrix(bias_matrix_json, num_cols)
+    if bias_map is not None:
+        aa_order = {aa: idx for idx, aa in enumerate(alphabet)}
+        for aa, value in bias_map.items():
+            if aa not in aa_order:
+                raise ValueError(
+                    f"Unknown amino acid '{aa}' in bias_aa_json. "
+                    f"Supported letters: {alphabet}."
+                )
+            bias_store[:, aa_order[aa]] += float(value)
+    if bias_matrix is not None:
+        expected_len = mpnn_model._inputs["S"].shape[1]
+        if bias_matrix.shape[0] != expected_len:
+            raise ValueError(
+                "bias_matrix_json length must match the number of residues "
+                f"(expected {expected_len}, got {bias_matrix.shape[0]})."
+            )
+        bias_store += bias_matrix
 
 
 def get_pdb_basename(pdb_path: str):
@@ -65,6 +134,11 @@ def design_monomer(
         mpnn_model.prep_inputs(
             pdb_filename=pdb_path,
             chain="A",
+        )
+        _apply_bias_inputs(
+            mpnn_model,
+            mpnn_cfg.get("bias_aa_json", ""),
+            mpnn_cfg.get("bias_matrix_json", ""),
         )
 
         if if_print:
@@ -159,6 +233,11 @@ def design_binder(
             chain=",".join(cond_chains + binder_chains),
             fix_pos=fix_pos,
             rm_aa=mpnn_cfg.rm_aa,
+        )
+        _apply_bias_inputs(
+            mpnn_model,
+            mpnn_cfg.get("bias_aa_json", ""),
+            mpnn_cfg.get("bias_matrix_json", ""),
         )
 
         if if_print:

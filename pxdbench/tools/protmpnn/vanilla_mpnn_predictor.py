@@ -120,7 +120,7 @@ class VanillaMPNNPredictor:
 
         model_type = self.cfg["model_type"]
         model_name = self.cfg["model_name"]
-        assert model_type in ["ca", "bb", "soluable"]
+        assert model_type in ["ca", "bb", "soluble"]
         path_to_model_weights = MPNN_CKPT_PATH[model_type]
 
         output_dir = os.path.dirname(jsonl_path)
@@ -143,6 +143,12 @@ class VanillaMPNNPredictor:
             "--path_to_model_weights",
             path_to_model_weights,
         ]
+        bias_aa_json = self.cfg.get("bias_aa_json", "")
+        if bias_aa_json:
+            cmd.extend(["--bias_AA_jsonl", bias_aa_json])
+        bias_matrix_json = self.cfg.get("bias_matrix_json", "")
+        if bias_matrix_json:
+            cmd.extend(["--bias_by_res_jsonl", bias_matrix_json])
         if model_type == "ca":
             cmd.extend(["--ca_only"])
         elif model_type == "soluble":
