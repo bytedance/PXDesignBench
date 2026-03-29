@@ -312,8 +312,21 @@ class BaseTask(ABC):
             self.out_dir, "ptx_pred" if is_large else "ptx_mini_pred"
         )
 
-        # HARDCODE binder chain idx
-        binder_chain_idx = 0 if self.binder_chains[0] == "A" else None
+        # select binder chain properly
+        binder_chain_idx = None
+        for item in data_list:
+            pdb_path = os.path.join(self.pdb_dir, item["name"] + ".pdb")
+            if os.path.exists(pdb_path):
+                from Bio.PDB import PDBParser
+                parser = PDBParser(QUIET=True)
+                struct = parser.get_structure("X", pdb_path)
+                chain_ids = [chain.id for chain in struct[0]]
+                if self.binder_chains[0] in chain_ids:
+                    binder_chain_idx = chain_ids.index(self.binder_chains[0])
+                break
+            if binder_chain_idx is None:
+                print(f"fallback ...")
+                binder_chain_idx = 0 if self.binder_chains[0] == "A" else None
         json_path = ptx_filter.prepare_json(
             self.pdb_dir,
             data_list,
